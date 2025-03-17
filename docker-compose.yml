@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:${APP_PORT:-8080}"
+    volumes:
+      - ./cmd:/app/cmd
+      - ./internal:/app/internal
+      - ./migrations:/app/migrations
+      - ./.env:/app/.env
+      - ./go.mod:/app/go.mod
+      - ./go.sum:/app/go.sum
+    working_dir: /app
+    command: sh -c "./bin/api -db-dsn=${FILMAPI_DB_DSN} -port=${APP_PORT:-8080}"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - APP_PORT=${APP_PORT}
+      - FILMAPI_DB_DSN=${FILMAPI_DB_DSN}
+    networks:
+      - app-network
+
+#   db:
+#     image: mysql:latest
+#     environment:
+#       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+#       MYSQL_DATABASE: ${MYSQL_DATABASE}
+#       MYSQL_USER: ${MYSQL_USER}
+#       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+#     ports:
+#       - "${DB_PORT}:3306"
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#     healthcheck:
+#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 10s
+#     networks:
+#       - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+# volumes:
+#   mysql_data:

@@ -1,0 +1,3 @@
+ALTER TABLE films DROP CONSTRAINT IF EXISTS films_runtime_check;
+ALTER TABLE films DROP CONSTRAINT IF EXISTS films_year_check;
+ALTER TABLE films DROP CONSTRAINT IF EXISTS films_image_check;

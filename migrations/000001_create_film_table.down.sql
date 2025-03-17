@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS "film_actors";
+DROP TABLE IF EXISTS "film_directors";
+DROP TABLE IF EXISTS "film_genres";
+DROP TABLE IF EXISTS "films";
+DROP TABLE IF EXISTS "actors";
+DROP TABLE IF EXISTS "genres";
+DROP TABLE IF EXISTS "directors";
