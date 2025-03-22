@@ -9,21 +9,22 @@ import (
 	"time"
 
 	"filmapi.zeyadtarek.net/internals/validator"
+	"github.com/lib/pq"
 )
-type Film struct {
-	ID          int64            `json:"id"`
-	Title       string           `json:"title"`
-	Year        int32            `json:"year"`
-	Runtime     Runtime          `json:"runtime"`
-	Genres      []Genre          `json:"genres"`
-	Directors   []Director       `json:"directors"`
-	Actors      []Actor          `json:"actors"`
-	Rating      float32          `json:"rating"`
-	Description string           `json:"description"`
-	Img         string           `json:"image"`
-	Version     int32            `json:"version"` // Add version field
-}
 
+type Film struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Year        int32      `json:"year"`
+	Runtime     Runtime    `json:"runtime"`
+	Genres      []Genre    `json:"genres"`
+	Directors   []Director `json:"directors"`
+	Actors      []Actor    `json:"actors"`
+	Rating      float32    `json:"rating"`
+	Description string     `json:"description"`
+	Img         string     `json:"image"`
+	Version     int32      `json:"version"` // Add version field
+}
 
 type FilmModel struct {
 	DB        *sql.DB
@@ -31,6 +32,7 @@ type FilmModel struct {
 	Actors    ActorModel
 	Directors DirectorModel
 }
+
 func NewFilmModel(db *sql.DB) FilmModel {
 	return FilmModel{
 		DB:        db,
@@ -80,317 +82,173 @@ func (model FilmModel) Get(id int64) (*Film, error) {
 		return nil, ErrRecordNotFound
 	}
 
-	query1 := `
-		SELECT f.id, f.title, f.year, f.runtime, f.rating, f.description, f.image
-		FROM films AS f
-		WHERE f.id = $1
-	`
-	query2 := `
-		SELECT g.id, g.name
-		FROM film_genres
-		INNER JOIN genres AS g ON g.id = film_genres.genre_id
-		INNER JOIN films AS f ON f.id = film_genres.film_id
+	query := `
+		SELECT 
+		f.id, f.title, f.year, f.runtime, f.rating, f.description, f.image, f.version,
+		(SELECT array_agg(g.name) FROM film_genres fg JOIN genres g ON fg.genre_id = g.id WHERE fg.film_id = f.id) AS genres,
+		(SELECT array_agg(a.name) FROM film_actors fa JOIN actors a ON fa.actor_id = a.id WHERE fa.film_id = f.id) AS actors,
+		(SELECT array_agg(d.name) FROM film_directors fd JOIN directors d ON fd.director_id = d.id WHERE fd.film_id = f.id) AS directors
+		FROM films f
 		WHERE f.id = $1
 	`
 
-	query3 := `
-		SELECT a.id, a.name
-		FROM film_actors
-		INNER JOIN actors AS a ON a.id = film_actors.actor_id
-		INNER JOIN films AS f ON f.id = film_actors.film_id
-		WHERE f.id = $1
-	`
-
-	query4 := `
-		SELECT d.id, d.name
-		FROM film_directors
-		INNER JOIN directors AS d ON d.id = film_directors.director_id
-		INNER JOIN films AS f ON f.id = film_directors.film_id
-		WHERE f.id = $1
-	`
-
-	tx, err := model.DB.Begin()
-	defer tx.Rollback()
-	if err != nil {
-		return nil, err
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
 	var film Film
-	var genres []Genre
-	var actors []Actor
-	var directors []Director
+	var genres []string
+	var actors []string
+	var directors []string
 
-	err = tx.QueryRow(query1, id).Scan(&film.ID, &film.Title, &film.Year, &film.Runtime, &film.Rating, &film.Description, &film.Img)
+	err := model.DB.QueryRowContext(ctx, query, id).Scan(
+		&film.ID,
+		&film.Title,
+		&film.Year,
+		&film.Runtime,
+		&film.Rating,
+		&film.Description,
+		&film.Img,
+		&film.Version,
+		pq.Array(&genres),
+		pq.Array(&actors),
+		pq.Array(&directors),
+	)
+
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows){
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRecordNotFound
-		}else{
-			return nil, err
 		}
-	}
-
-	rows, err := tx.Query(query2, id)
-	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var genre Genre
-		err = rows.Scan(&genre.ID, &genre.Name)
-		if err != nil {
-			return nil, err
-		}
-		genres = append(genres, genre)
+	// Convert string arrays to respective types
+	film.Genres = make([]Genre, len(genres))
+	for i, genre := range genres {
+		film.Genres[i] = Genre{Name: genre}
 	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	film.Genres = genres
 
-	rows, err = tx.Query(query3, id)
-	if err != nil {
-		return nil, err
+	film.Actors = make([]Actor, len(actors))
+	for i, actor := range actors {
+		film.Actors[i] = Actor{Name: actor}
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var actor Actor
-		err = rows.Scan(&actor.ID, &actor.Name)
-		if err != nil {
-			return nil, err
-		}
-		actors = append(actors, actor)
+	film.Directors = make([]Director, len(directors))
+	for i, director := range directors {
+		film.Directors[i] = Director{Name: director}
+	}
 
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	film.Actors = actors
-
-	rows, err = tx.Query(query4, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var director Director
-		err = rows.Scan(&director.ID, &director.Name)
-		if err != nil {
-			return nil, err
-		}
-		directors = append(directors, director)
-
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	film.Directors = directors
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
 	return &film, nil
 }
 
 func (model FilmModel) Insert(film *Film) error {
-	// Start a transaction
 	tx, err := model.DB.Begin()
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
-	if err != nil {
-		return err
-	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	// Insert the film first
-	query := `
-		INSERT INTO films (title, year, runtime, rating, description, image, version) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id
-	`
-	args := []any{film.Title, film.Year, film.Runtime, film.Rating, film.Description, film.Img, 1}
-	err = tx.QueryRowContext(ctx, query, args...).Scan(&film.ID)
+
+	// Insert film
+	query := `INSERT INTO films (title, year, runtime, rating, description, image, version) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+	err = tx.QueryRowContext(ctx, query, film.Title, film.Year, film.Runtime, film.Rating, film.Description, film.Img, 1).Scan(&film.ID)
 	if err != nil {
 		return err
 	}
 
-	// Process directors with GetOrCreate and link them
-	for i := range film.Directors {
-		director, err := model.Directors.GetOrCreate(tx, film.Directors[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Directors[i] = *director
-		err = director.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Process actors with GetOrCreate and link them
-	for i := range film.Actors {
-		actor, err := model.Actors.GetOrCreate(tx, film.Actors[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Actors[i] = *actor
-		err = actor.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Process genres with GetOrCreate and link them
-	for i := range film.Genres {
-		genre, err := model.Genres.GetOrCreate(tx, film.Genres[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Genres[i] = *genre
-		err = genre.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Commit the transaction
-	err = tx.Commit()
-	if err != nil {
+	// Batch insert related entities
+	if err := model.batchInsertRelations(tx, ctx, film); err != nil {
 		return err
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (model FilmModel) Update(film *Film) error {
-	query1 := `
+	tx, err := model.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	query := `
 		UPDATE films
-		SET title = $1, runtime = $2, year = $3, rating = $4, description = $5, image = $6, version = $8
+		SET title = $1, year = $2, runtime = $3, rating = $4, description = $5, image = $6, version = version + 1
 		WHERE id = $7 AND version = $8
 		RETURNING version
 	`
 
-	args := []any{
-		film.Title, 
-		film.Runtime, 
+	args := []interface{}{
+		film.Title,
 		film.Year,
+		film.Runtime,
 		film.Rating,
 		film.Description,
 		film.Img,
 		film.ID,
 		film.Version,
-	}	
+	}
 
-	tx, err := model.DB.Begin()
-	if err != nil{
+	err = tx.QueryRowContext(ctx, query, args...).Scan(&film.Version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrEditConflict
+		}
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
-	defer cancel()
-
-	err = tx.QueryRowContext(ctx,query1, args...).Scan(&film.Version)
-	if err != nil{
-		if errors.Is(err, sql.ErrNoRows){
-			return ErrEditConflict
-		}
-
+	if err := model.batchInsertRelations(tx, ctx, film); err != nil {
 		return err
 	}
-	
-	for i := range film.Directors {
-		director, err := model.Directors.GetOrCreate(tx, film.Directors[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Directors[i] = *director
-		err = director.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
 
-	// Process actors with GetOrCreate and link them
-	for i := range film.Actors {
-		actor, err := model.Actors.GetOrCreate(tx, film.Actors[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Actors[i] = *actor
-		err = actor.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Process genres with GetOrCreate and link them
-	for i := range film.Genres {
-		genre, err := model.Genres.GetOrCreate(tx, film.Genres[i].Name, ctx)
-		if err != nil {
-			return err
-		}
-		film.Genres[i] = *genre
-		err = genre.LinkToFilm(tx, film, ctx)
-		if err != nil {
-			return err
-		}
-	}
-	err = tx.Commit()
-	if err != nil{
-		switch{
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		
-		default:
-			return err
-		}
-
-	}
-	
-	return nil
+	return tx.Commit()
 }
 
 func (model FilmModel) Delete(id int64) error {
-	if id < 1{
+	if id < 1 {
 		return ErrRecordNotFound
 	}
 
+	tx, err := model.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	query := `
-		DELETE FROM films
-		WHERE id = $1
+		WITH deleted_relations AS (
+			DELETE FROM film_genres WHERE film_id = $1;
+			DELETE FROM film_actors WHERE film_id = $1;
+			DELETE FROM film_directors WHERE film_id = $1;
+		)
+		DELETE FROM films WHERE id = $1
 	`
-	
-	result, err := model.DB.Exec(query, id)
-	if err != nil{
+
+	result, err := tx.ExecContext(ctx, query, id)
+	if err != nil {
 		return err
 	}
-	rowsNum, err := result.RowsAffected()
-	if err != nil{
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
 		return err
 	}
-	if rowsNum == 0{
+
+	if rowsAffected == 0 {
 		return ErrRecordNotFound
 	}
 
-	return nil
+	return tx.Commit()
 }
 
-
-func (model FilmModel) Lock(id int64) error{
-	query := `
-		SELECT id FROM films
-		WHERE id = $1
-		FOR UPDATE
-	`
-
-	_, err := model.DB.Exec(query, id)
-
-	return err
-}
-
-func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([]*Film, error){
+func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([]*Film, error) {
 	query := `
 		SELECT 
 		f.id , f.title, f.year, f.runtime, f.rating, f.description, f.image, f.version,
@@ -415,31 +273,31 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 			f.id;
 		`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	rows, err := model.DB.QueryContext(ctx, query)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	type input struct{
-		ID          int64            `json:"id"`
-		Title       string           `json:"title"`
-		Year        int32            `json:"year"`
-		Runtime     Runtime          `json:"runtime"`
-		Genres      []string          `json:"genres"`
-		Directors   []string       	`json:"directors"`
-		Actors      []string          `json:"actors"`
-		Rating      float32          `json:"rating"`
-		Description string           `json:"description"`
-		Img         string           `json:"image"`
-		Version     int32            `json:"version"` // Add version field
+	type input struct {
+		ID          int64    `json:"id"`
+		Title       string   `json:"title"`
+		Year        int32    `json:"year"`
+		Runtime     Runtime  `json:"runtime"`
+		Genres      []string `json:"genres"`
+		Directors   []string `json:"directors"`
+		Actors      []string `json:"actors"`
+		Rating      float32  `json:"rating"`
+		Description string   `json:"description"`
+		Img         string   `json:"image"`
+		Version     int32    `json:"version"` // Add version field
 	}
 	films := []*Film{}
 
-	for rows.Next(){
+	for rows.Next() {
 		var filmInput input
 		var film Film
 		err := rows.Scan(
@@ -451,12 +309,11 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 			&filmInput.Description,
 			&filmInput.Img,
 			&filmInput.Version,
-			&filmInput.Genres,
-			&filmInput.Actors,
-			&filmInput.Directors,
-
+			pq.Array(&filmInput.Genres),
+			pq.Array(&filmInput.Actors),
+			pq.Array(&filmInput.Directors),
 		)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 
@@ -468,21 +325,21 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 		film.Description = filmInput.Description
 		film.Img = filmInput.Img
 		film.Version = filmInput.Version
-		
+
 		genres := make([]Genre, len(filmInput.Genres))
-		for i, genre := range filmInput.Genres{
+		for i, genre := range filmInput.Genres {
 			genres[i] = Genre{Name: genre}
 		}
 		film.Genres = genres
 
 		directors := make([]Director, len(filmInput.Directors))
-		for i, director := range filmInput.Directors{
+		for i, director := range filmInput.Directors {
 			directors[i] = Director{Name: director}
 		}
 		film.Directors = directors
 
 		actors := make([]Actor, len(filmInput.Actors))
-		for i, actor := range filmInput.Actors{
+		for i, actor := range filmInput.Actors {
 			actors[i] = Actor{Name: actor}
 		}
 		film.Actors = actors
@@ -490,9 +347,93 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 		films = append(films, &film)
 	}
 
-	if err = rows.Err(); err != nil{
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
 	return films, nil
+}
+
+func (model FilmModel) Lock(id int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err := model.DB.ExecContext(ctx, `SELECT id FROM films WHERE id = $1 FOR UPDATE`, id)
+	return err
+}
+
+func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, film *Film) error {
+	// Batch insert directors
+	if len(film.Directors) > 0 {
+		directorNames := make([]string, len(film.Directors))
+		for i, d := range film.Directors {
+			directorNames[i] = d.Name
+		}
+
+		query := `
+			WITH inserted_directors AS (
+				INSERT INTO directors (name)
+				SELECT unnest($1::text[])
+				ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+				RETURNING id, name
+			)
+			INSERT INTO film_directors (film_id, director_id)
+			SELECT $2, id FROM inserted_directors
+			ON CONFLICT DO NOTHING
+		`
+		_, err := tx.ExecContext(ctx, query, pq.Array(directorNames), film.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Batch insert actors
+	if len(film.Actors) > 0 {
+		actorNames := make([]string, len(film.Actors))
+		for i, a := range film.Actors {
+			actorNames[i] = a.Name
+		}
+
+		query := `
+			WITH inserted_actors AS (
+				INSERT INTO actors (name)
+				SELECT unnest($1::text[])
+				ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+				RETURNING id, name
+			)
+			INSERT INTO film_actors (film_id, actor_id)
+			SELECT $2, id FROM inserted_actors
+			ON CONFLICT DO NOTHING
+		`
+		_, err := tx.ExecContext(ctx, query, pq.Array(actorNames), film.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Batch insert genres
+	if len(film.Genres) > 0 {
+		genreNames := make([]string, len(film.Genres))
+		for i, g := range film.Genres {
+			genreNames[i] = g.Name
+		}
+
+		query := `
+			WITH inserted_genres AS (
+				INSERT INTO genres (name)
+				SELECT unnest($1::text[])
+				ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+				RETURNING id, name
+			)
+			INSERT INTO film_genres (film_id, genre_id)
+			SELECT $2, id FROM inserted_genres
+			ON CONFLICT DO NOTHING
+		`
+		_, err := tx.ExecContext(ctx, query, pq.Array(genreNames), film.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
