@@ -1,6 +1,9 @@
 package models
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 type Actor struct{
 	ID uint `json:"id"`
@@ -11,7 +14,7 @@ type ActorModel struct {
 	DB *sql.DB
 }
 
-func (m ActorModel) GetOrCreate(tx *sql.Tx, name string) (*Actor, error) {
+func (m ActorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Actor, error) {
 	actor := &Actor{}
 	
 	query := `
@@ -27,7 +30,7 @@ func (m ActorModel) GetOrCreate(tx *sql.Tx, name string) (*Actor, error) {
 		LIMIT 1
 	`
 	
-	err := tx.QueryRow(query, name).Scan(&actor.ID, &actor.Name)
+	err := tx.QueryRowContext(ctx, query, name).Scan(&actor.ID, &actor.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -35,14 +38,14 @@ func (m ActorModel) GetOrCreate(tx *sql.Tx, name string) (*Actor, error) {
 	return actor, nil
 }
 
-func (actor Actor) LinkToFilm(tx *sql.Tx, film *Film) error{
+func (actor Actor) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error{
 	query := `
 		INSERT INTO film_actors (film_id, actor_id) VALUES ($1, $2)
 		ON CONFLICT (film_id, actor_id) DO NOTHING
 	`
 	args := []any{film.ID, actor.ID}
 
-	_, err := tx.Exec(query, args...)
+	_, err := tx.ExecContext(ctx, query, args...)
 
 	return err
 }

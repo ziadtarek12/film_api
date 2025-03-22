@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
+
+	"filmapi.zeyadtarek.net/internals/validator"
 )
 
 
@@ -115,3 +119,37 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 
 	return nil
 }
+
+func (app *application) readString(queryString url.Values, key string, defaultValue string) string{
+	s := queryString.Get(key)
+	if s == ""{
+		return defaultValue
+	}
+
+	return s
+}
+
+func (app *application) readCSV(queryString url.Values, key string, defaultValue []string)[]string{
+	csv := queryString.Get(key)
+	if csv == ""{
+		return defaultValue
+	}
+
+	return strings.Split(csv, ",")
+}
+
+func (app *application) readInt(queryString url.Values, key string, defaultValue int, v *validator.Validator) int{
+	str := queryString.Get(key)
+	if str == ""{
+		return defaultValue
+	}
+
+	integer, err := strconv.Atoi(str)
+	if err != nil{
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+
+	return integer
+}
+

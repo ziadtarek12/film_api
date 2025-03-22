@@ -1,6 +1,11 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"errors"
+)
+var ErrRecordNotFound = errors.New("record doesn't exist")
+var ErrEditConflict = errors.New("edit conflict")
 
 type Models struct{
 	Films interface{
@@ -8,6 +13,7 @@ type Models struct{
 		Insert(*Film) error
 		Update(*Film) error
 		Delete(id int64) error
+		Lock(id int64) error
 	}
 
 	Directors interface{

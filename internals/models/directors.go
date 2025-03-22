@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 )
 
@@ -13,7 +14,7 @@ type DirectorModel struct{
 	DB *sql.DB
 }
 
-func (m DirectorModel) GetOrCreate(tx *sql.Tx, name string) (*Director, error) {
+func (m DirectorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Director, error) {
 	director := &Director{}
 	
 	query := `
@@ -29,7 +30,7 @@ func (m DirectorModel) GetOrCreate(tx *sql.Tx, name string) (*Director, error) {
 		LIMIT 1
 	`
 	
-	err := tx.QueryRow(query, name).Scan(&director.ID, &director.Name)
+	err := tx.QueryRowContext(ctx, query, name).Scan(&director.ID, &director.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -37,14 +38,14 @@ func (m DirectorModel) GetOrCreate(tx *sql.Tx, name string) (*Director, error) {
 	return director, nil
 }
 
-func (director Director) LinkToFilm(tx *sql.Tx, film *Film) error{
+func (director Director) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error{
 	query := `
 		INSERT INTO film_directors (film_id, director_id) VALUES ($1, $2)
 		ON CONFLICT (film_id, director_id) DO NOTHING
 	`
 	args := []any{film.ID, director.ID}
 
-	_, err := tx.Exec(query, args...)
+	_, err := tx.ExecContext(ctx, query, args...)
 
 	return err
 }

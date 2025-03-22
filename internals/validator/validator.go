@@ -9,6 +9,11 @@ var (
 	EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 )
 
+
+var (
+	URLRX = regexp.MustCompile(`^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$`)
+)
+
 type Validator struct{
 	Errors map[string]string
 }
@@ -62,4 +67,8 @@ func Unique[T comparable](values []T) bool{
 	return len(values) == len(uniqueValues)
 }
 
+
+func MatchesURL(URL string) bool{
+	return URLRX.MatchString(URL)
+}
 
