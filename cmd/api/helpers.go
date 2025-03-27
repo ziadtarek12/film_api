@@ -37,18 +37,17 @@ func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, st
 	env := map[string]any{
 		"error": message,
 	}
-
 	err := app.writeJSON(w, status, env, nil)
 	if err != nil{
-		app.errorLogger.Println(err)
+		app.logger.PrintError(err, nil)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
 func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error){
-	app.errorLogger.Println(err)
+	app.logger.PrintError(err, nil)
 	message := "The server encountred a problem and could not process your request"
-
+	app.logError(r, err)
 	app.errorResponse(w, r, http.StatusInternalServerError, message)
 
 }
@@ -151,5 +150,13 @@ func (app *application) readInt(queryString url.Values, key string, defaultValue
 	}
 
 	return integer
+}
+
+
+func (app *application) logError(r *http.Request, err error){
+	app.logger.PrintError(err, map[string]string{
+		"request_method": r.Method,
+		"request_url": r.URL.String(),
+	})
 }
 

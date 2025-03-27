@@ -1,62 +1,62 @@
-# #!/bin/bash
+#!/bin/bash
 
-# # Test the healthcheck endpoint
-# echo "Testing healthcheck endpoint..."
-# curl -i -X GET http://localhost:8080/v1/healthcheck
+# Test the healthcheck endpoint
+echo "Testing healthcheck endpoint..."
+curl -i -X GET http://localhost:8080/v1/healthcheck
 
-# # Test creating a new film
-# echo -e "\n\nTesting create film endpoint..."
-# curl -i -X POST http://localhost:8080/v1/films \
-#   -H "Content-Type: application/json" \
-#   -d '{
-#     "title": "The Godfather",
-#     "year": 1972,
-#     "runtime": "175 mins",
-#     "genres": ["Crime", "Drama"],
-#     "directors": ["Francis Ford Coppola"],
-#     "actors": ["Marlon Brando", "Al Pacino", "James Caan"],
-#     "rating": 9.2,
-#     "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
-#     "image": "https://example.com/godfather.jpg"
-#   }'
+# Test creating a new film
+echo -e "\n\nTesting create film endpoint..."
+curl -i -X POST http://localhost:8080/v1/films \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "The Godfather",
+    "year": 1972,
+    "runtime": "175 mins",
+    "genres": ["Crime", "Drama"],
+    "directors": ["Francis Ford Coppola"],
+    "actors": ["Marlon Brando", "Al Pacino", "James Caan"],
+    "rating": 9.2,
+    "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
+    "image": "https://example.com/godfather.jpg"
+  }'
 
-# # Test getting a film by ID (replace {id} with an actual ID after creating a film)
-# echo -e "\n\nTesting get film endpoint..."
-# curl -i -X GET http://localhost:8080/v1/films/2
+# Test getting a film by ID (replace {id} with an actual ID after creating a film)
+echo -e "\n\nTesting get film endpoint..."
+curl -i -X GET http://localhost:8080/v1/films/3
 
-# # Test updating a film
-# echo -e "\n\nTesting update film endpoint..."
-# curl -i -X PATCH http://localhost:8080/v1/films/2 \
-#   -H "Content-Type: application/json" \
-#   -d '{
-#     "title": "The Godfather: Part II",
-#     "year": 1974,
-#     "runtime": "202 mins",
-#     "genres": ["Crime", "Drama"],
-#     "directors": ["Francis Ford Coppola"],
-#     "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
-#     "rating": 9.0,
-#     "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
-#     "image": "https://example.com/godfather2.jpg"
-#   }'
+# Test updating a film
+echo -e "\n\nTesting update film endpoint..."
+curl -i -X PATCH http://localhost:8080/v1/films/3 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "The Godfather: Part II",
+    "year": 1974,
+    "runtime": "202 mins",
+    "genres": ["Crime", "Drama"],
+    "directors": ["Francis Ford Coppola"],
+    "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
+    "rating": 9.0,
+    "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
+    "image": "https://example.com/godfather2.jpg"
+  }'
 
-# curl -i -X PATCH http://localhost:8080/v1/films/2 \
-#   -H "Content-Type: application/json" \
-#   -d '{
-#     "title": "The Godfather",
-#     "year": 1974,
-#     "runtime": "202 mins",
-#     "genres": ["Crime", "Drama"],
-#     "directors": ["Francis Ford Coppola"],
-#     "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
-#     "rating": 9.0,
-#     "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
-#     "image": "https://example.com/godfather2.jpg"
-# }'
+curl -i -X PATCH http://localhost:8080/v1/films/3 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "The Godfather",
+    "year": 1974,
+    "runtime": "202 mins",
+    "genres": ["Crime", "Drama"],
+    "directors": ["Francis Ford Coppola"],
+    "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
+    "rating": 9.0,
+    "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
+    "image": "https://example.com/godfather2.jpg"
+}'
 
 
-# echo -e "\n\nTesting delete film endpoint..."
-# curl -X DELETE localhost:8080/v1/films/8
+echo -e "\n\nTesting delete film endpoint..."
+curl -X DELETE localhost:8080/v1/films/3
 
 
 # Add a test for race condition in updateFilmHandler

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	// "filmapi.zeyadtarek.net/internals/cert"
+	"filmapi.zeyadtarek.net/internals/jsonlog"
 	"filmapi.zeyadtarek.net/internals/models"
 	_ "github.com/lib/pq"
 )
@@ -25,11 +26,16 @@ type config struct {
         maxIdleConns int
         maxIdleTime  string
     }
+
+    limiter struct{
+        rps     float64
+        burst   int
+        enabled bool
+    }
 }
 
 type application struct {
-    infoLogger  *log.Logger
-    errorLogger *log.Logger
+    logger      *jsonlog.Logger
     config      config
     models models.Models
 }
@@ -42,23 +48,24 @@ func main() {
     flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
     flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
     flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+    flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
+    flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum requests per second")
+    flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enabled rate limiter")
     flag.Parse()
    
-
-    infologger := log.New(os.Stdout, "Info: ", log.Ldate|log.Ltime|log.Lshortfile)
-    errorLogger := log.New(os.Stderr, "Error: ", log.Ldate|log.Llongfile|log.Ltime)
+    logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 
     
     app := &application{
-        infoLogger:  infologger,
-        errorLogger: errorLogger,
         config:      cfg,
+        logger: logger,
     }
 
     db, err := openDB(cfg)
     if err != nil{
-        app.errorLogger.Fatal(err)
+        app.logger.PrintFatal(err, nil)
     }
+    app.logger.PrintInfo("database connection established", nil)
     defer db.Close()
 
     app.models = models.New(db)
@@ -92,17 +99,21 @@ func main() {
     srv := http.Server{
         Addr:         ":"+ strconv.Itoa(cfg.port),
         Handler:      app.routes(),
-        ErrorLog:     app.errorLogger,
+        ErrorLog: log.New(logger, "", 0),
         // TLSConfig:    tlsConfig,
         ReadTimeout:  10 * time.Second,
         WriteTimeout: 30 * time.Second,
         IdleTimeout:  time.Minute,
     }
 
-    app.infoLogger.Printf("Starting listening on port %d", app.config.port)
+    app.logger.PrintInfo("starting server", map[string]string{
+        "addr": srv.Addr,
+        "env": cfg.env,
+    })
+
     // err = srv.ListenAndServeTLS(cert.CertPath, cert.KeyPath)
     err = srv.ListenAndServe()
-    app.errorLogger.Fatal(err)
+    app.logger.PrintFatal(err, nil)
 }
 
 func openDB(cfg config) (*sql.DB, error){

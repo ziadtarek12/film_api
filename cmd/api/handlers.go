@@ -21,7 +21,7 @@ func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Reques
 
 	err := app.writeJSON(w, http.StatusOK, env, nil)
 	if err != nil {
-		app.errorResponse(w, r, http.StatusInternalServerError, err.Error())
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (app *application) getFilmHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		app.errorResponse(w, r, http.StatusInternalServerError, err.Error())
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
@@ -219,7 +219,7 @@ func (app *application) deleteFilmHandler(w http.ResponseWriter, r *http.Request
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		app.errorResponse(w, r, http.StatusInternalServerError, err.Error())
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
@@ -260,11 +260,23 @@ func (app *application) ListFilmsHandler(w http.ResponseWriter, r *http.Request)
 	input.Genres = app.readCSV(queryString, "genres", []string{})
 	input.Filters.Page = app.readInt(queryString, "page", 1, v)
 	input.Filters.PageSize = app.readInt(queryString, "page_size", 20, v)
-	input.Filters.Sort = app.readString(queryString, "sort", "id")
+	input.Filters.SortValues = app.readCSV(queryString, "sort", []string{})
 	input.Filters.SortSafelist = []string{"id", "title", "year", "runtime", "rating", "-id", "-title", "-year", "-runtime", "-rating"}
 
 	if models.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	films, metadata ,err := app.models.Films.GetAll(input.Title, input.Genres, input.Actors, input.Directors, input.Filters)
+	if err != nil{
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"films": films, "metadata": metadata}, nil)
+	if err != nil{
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 

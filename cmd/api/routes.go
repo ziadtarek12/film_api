@@ -19,5 +19,5 @@ func (app *application) routes() http.Handler {
 		router.Handle(url, http.HandlerFunc(handler))
 	}
 
-	return router
+	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit)
 }

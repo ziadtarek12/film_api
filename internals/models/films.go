@@ -213,25 +213,14 @@ func (model FilmModel) Delete(id int64) error {
 		return ErrRecordNotFound
 	}
 
-	tx, err := model.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	query := `
-		WITH deleted_relations AS (
-			DELETE FROM film_genres WHERE film_id = $1;
-			DELETE FROM film_actors WHERE film_id = $1;
-			DELETE FROM film_directors WHERE film_id = $1;
-		)
 		DELETE FROM films WHERE id = $1
 	`
 
-	result, err := tx.ExecContext(ctx, query, id)
+	result, err := model.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
@@ -245,40 +234,58 @@ func (model FilmModel) Delete(id int64) error {
 		return ErrRecordNotFound
 	}
 
-	return tx.Commit()
+	return nil
+
 }
 
-func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([]*Film, error) {
-	query := `
-		SELECT 
-		f.id , f.title, f.year, f.runtime, f.rating, f.description, f.image, f.version,
-		COALESCE(array_agg(DISTINCT g.name) FILTER (WHERE g.name IS NOT NULL), '{}') AS genres,
-		COALESCE(array_agg(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS actors,
-		COALESCE(array_agg(DISTINCT d.name) FILTER (WHERE d.name IS NOT NULL), '{}') AS directors
-		FROM 
-			films f
-		LEFT JOIN 
-			film_genres fg ON f.id = fg.film_id
-		LEFT JOIN 
-			genres g ON fg.genre_id = g.id
-		LEFT JOIN 
-			film_actors fa ON f.id = fa.film_id
-		LEFT JOIN 
-			actors a ON fa.actor_id = a.id
-		LEFT JOIN 
-			film_directors fd ON f.id = fd.film_id
-		LEFT JOIN 
-			directors d ON fd.director_id = d.id
-		GROUP BY 
-			f.id;
-		`
-
+func (model FilmModel) GetAll(title string, genres []string, actors []string, directors []string,filters Filters) ([]*Film, Metadata, error) {
+	query := fmt.Sprintf(`
+	SELECT COUNT(*) OVER(),
+		f.*,
+		(SELECT array_agg(g.name) FROM film_genres fg 
+		JOIN genres g ON fg.genre_id = g.id 
+		WHERE fg.film_id = f.id) AS genres,
+		(SELECT array_agg(a.name) FROM film_actors fa 
+		JOIN actors a ON fa.actor_id = a.id 
+		WHERE fa.film_id = f.id) AS actors,
+		(SELECT array_agg(d.name) FROM film_directors fd 
+		JOIN directors d ON fd.director_id = d.id 
+		WHERE fd.film_id = f.id) AS directors
+		FROM films f
+		WHERE (to_tsvector('simple', f.title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+		AND ( EXISTS (
+		SELECT 1 FROM film_genres fg 
+		JOIN genres g ON fg.genre_id = g.id 
+		WHERE fg.film_id = f.id 
+		AND g.name = ANY($2)
+		) OR $2 = ARRAY[]::text[]
+		)
+		AND ( EXISTS ( SELECT 1 
+		FROM film_actors fa 
+		JOIN actors a ON fa.actor_id = a.id 
+		WHERE fa.film_id = f.id 
+		AND a.name = ANY($3)
+		) OR $3 = ARRAY[]::text[]
+		)
+		AND (
+		EXISTS (
+		SELECT 1 
+		FROM film_directors fd 
+		JOIN directors d ON fd.director_id = d.id 
+		WHERE fd.film_id = f.id 
+		AND d.name = ANY($4)
+		) OR $4 = ARRAY[]::text[]
+		)
+		ORDER BY %s id ASC
+		LIMIT $5 OFFSET $6
+		`, filters.sortColumn())
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := model.DB.QueryContext(ctx, query)
+	rows, err := model.DB.QueryContext(ctx, query, title, pq.Array(genres), pq.Array(actors), pq.Array(directors), filters.limit(), filters.offset())
 	if err != nil {
-		return nil, err
+		return nil, Metadata{},err
 	}
 	defer rows.Close()
 
@@ -293,14 +300,15 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 		Rating      float32  `json:"rating"`
 		Description string   `json:"description"`
 		Img         string   `json:"image"`
-		Version     int32    `json:"version"` // Add version field
+		Version     int32    `json:"version"` 
 	}
 	films := []*Film{}
-
+	totalRecords := 0
 	for rows.Next() {
 		var filmInput input
 		var film Film
 		err := rows.Scan(
+			&totalRecords,
 			&filmInput.ID,
 			&filmInput.Title,
 			&filmInput.Year,
@@ -314,7 +322,7 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 			pq.Array(&filmInput.Directors),
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{},err
 		}
 
 		film.ID = filmInput.ID
@@ -348,19 +356,14 @@ func (model FilmModel) GetAll(title string, genres []string, filters Filters) ([
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{},err
 	}
 
-	return films, nil
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+	return films, metadata, nil
 }
 
-func (model FilmModel) Lock(id int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 
-	_, err := model.DB.ExecContext(ctx, `SELECT id FROM films WHERE id = $1 FOR UPDATE`, id)
-	return err
-}
 
 func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, film *Film) error {
 	// Batch insert directors

@@ -13,7 +13,8 @@ type Models struct{
 		Insert(*Film) error
 		Update(*Film) error
 		Delete(id int64) error
-		Lock(id int64) error
+		GetAll(title string, genres []string, actors []string, directors []string,filters Filters) ([]*Film, Metadata,error)
+
 	}
 
 	Directors interface{
