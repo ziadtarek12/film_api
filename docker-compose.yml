@@ -30,29 +30,29 @@ services:
     networks:
       - app-network
 
-#   db:
-#     image: mysql:latest
-#     environment:
-#       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-#       MYSQL_DATABASE: ${MYSQL_DATABASE}
-#       MYSQL_USER: ${MYSQL_USER}
-#       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-#     ports:
-#       - "${DB_PORT}:3306"
-#     volumes:
-#       - mysql_data:/var/lib/mysql
-#     healthcheck:
-#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
-#       interval: 5s
-#       timeout: 5s
-#       retries: 5
-#       start_period: 10s
-#     networks:
-#       - app-network
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_ROOT_PASSWORD: ${POSTGRESS_ROOT_PASSWORD}
+      POSTGRES_DATABASE: ${POSTGRESS_DATABASE}
+      POSTGRES_USER: ${POSTGRESS_USER}
+      POSTGRES_PASSWORD: ${POSTGRESS_PASSWORD}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRESS_USER} -d ${POSTGRESS_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
 
 networks:
   app-network:
     driver: bridge
 
-# volumes:
-#   mysql_data:
+volumes:
+  postgres_data:
