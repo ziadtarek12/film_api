@@ -17,16 +17,16 @@ type Models struct{
 
 	}
 
-	Directors interface{
-		Get(id int64) (*Film, error)
-		Insert(*Film) error
-		Update(*Film) error
-		Delete(id int64) error
+	Users interface{
+		GetByEmail(string) (*User, error)
+		Insert(*User) error
+		Update(*User) error
 	}
 }
 
 func New(DB *sql.DB) Models{
 	return Models{
 		Films: FilmModel{DB: DB},
+		Users: UserModel{DB: DB},
 	}
 }

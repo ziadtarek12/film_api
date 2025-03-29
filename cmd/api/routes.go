@@ -14,6 +14,7 @@ func (app *application) routes() http.Handler {
 		"PATCH /v1/films/{id}":   app.updateFilmHandler,
 		"DELETE /v1/films/{id}": app.deleteFilmHandler,
 		"GET /v1/films": app.ListFilmsHandler,
+		"POST /v1/user": app.createUserHandler,
 	}
 	for url, handler := range handlers {
 		router.Handle(url, http.HandlerFunc(handler))
