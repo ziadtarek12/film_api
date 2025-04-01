@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"filmapi.zeyadtarek.net/internals/models"
 	"filmapi.zeyadtarek.net/internals/validator"
@@ -127,92 +128,92 @@ func (app *application) createFilmHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (app *application) updateFilmHandler(w http.ResponseWriter, r *http.Request) {
-    idStr := r.PathValue("id")
-    id, err := strconv.ParseInt(idStr, 10, 64)
-    if err != nil {
-        app.notFoundResponse(w, r)
-        return
-    }
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
 
-    // Fetch the latest version of the film
-    film, err := app.models.Films.Get(id)
-    if err != nil {
-        app.notFoundResponse(w, r)
-        return
-    }
+	// Fetch the latest version of the film
+	film, err := app.models.Films.Get(id)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
 
-    var input struct {
-        Title       *string         `json:"title"`
-        Year        *int32          `json:"year"`
-        Runtime     *models.Runtime `json:"runtime"`
-        Genres      *[]string       `json:"genres"`
-        Directors   *[]string       `json:"directors"`
-        Actors      *[]string       `json:"actors"`
-        Rating      *float32        `json:"rating"`
-        Description *string         `json:"description"`
-        Img         *string         `json:"image"`
-    }
+	var input struct {
+		Title       *string         `json:"title"`
+		Year        *int32          `json:"year"`
+		Runtime     *models.Runtime `json:"runtime"`
+		Genres      *[]string       `json:"genres"`
+		Directors   *[]string       `json:"directors"`
+		Actors      *[]string       `json:"actors"`
+		Rating      *float32        `json:"rating"`
+		Description *string         `json:"description"`
+		Img         *string         `json:"image"`
+	}
 
-    err = app.readJSON(w, r, &input)
-    if err != nil {
-        app.badRequestResponse(w, r, err)
-        return
-    }
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 
-    // Apply partial updates
-    if input.Title != nil {
-        film.Title = *input.Title
-    }
-    if input.Year != nil {
-        film.Year = *input.Year
-    }
-    if input.Runtime != nil {
-        film.Runtime = *input.Runtime
-    }
-    if input.Genres != nil {
-        film.Genres = make([]models.Genre, len(*input.Genres))
-        for i, genre := range *input.Genres {
-            film.Genres[i] = models.Genre{Name: genre}
-        }
-    }
-    if input.Directors != nil {
-        film.Directors = make([]models.Director, len(*input.Directors))
-        for i, director := range *input.Directors {
-            film.Directors[i] = models.Director{Name: director}
-        }
-    }
-    if input.Actors != nil {
-        film.Actors = make([]models.Actor, len(*input.Actors))
-        for i, actor := range *input.Actors {
-            film.Actors[i] = models.Actor{Name: actor}
-        }
-    }
-    if input.Rating != nil {
-        film.Rating = *input.Rating
-    }
-    if input.Description != nil {
-        film.Description = *input.Description
-    }
-    if input.Img != nil {
-        film.Img = *input.Img
-    }
+	// Apply partial updates
+	if input.Title != nil {
+		film.Title = *input.Title
+	}
+	if input.Year != nil {
+		film.Year = *input.Year
+	}
+	if input.Runtime != nil {
+		film.Runtime = *input.Runtime
+	}
+	if input.Genres != nil {
+		film.Genres = make([]models.Genre, len(*input.Genres))
+		for i, genre := range *input.Genres {
+			film.Genres[i] = models.Genre{Name: genre}
+		}
+	}
+	if input.Directors != nil {
+		film.Directors = make([]models.Director, len(*input.Directors))
+		for i, director := range *input.Directors {
+			film.Directors[i] = models.Director{Name: director}
+		}
+	}
+	if input.Actors != nil {
+		film.Actors = make([]models.Actor, len(*input.Actors))
+		for i, actor := range *input.Actors {
+			film.Actors[i] = models.Actor{Name: actor}
+		}
+	}
+	if input.Rating != nil {
+		film.Rating = *input.Rating
+	}
+	if input.Description != nil {
+		film.Description = *input.Description
+	}
+	if input.Img != nil {
+		film.Img = *input.Img
+	}
 
-    // Retry the update
-    err = app.models.Films.Update(film)
-    if err != nil {
-        switch {
-        case errors.Is(err, models.ErrEditConflict):
-            app.editConflictResponse(w, r)
-        default:
-            app.serverErrorResponse(w, r, err)
-        }
-        return
-    }
+	// Retry the update
+	err = app.models.Films.Update(film)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
 
-    err = app.writeJSON(w, http.StatusOK, map[string]any{"film": film}, nil)
-    if err != nil {
-        app.serverErrorResponse(w, r, err)
-    }
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"film": film}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 func (app *application) deleteFilmHandler(w http.ResponseWriter, r *http.Request) {
@@ -268,55 +269,54 @@ func (app *application) ListFilmsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	films, metadata ,err := app.models.Films.GetAll(input.Title, input.Genres, input.Actors, input.Directors, input.Filters)
-	if err != nil{
+	films, metadata, err := app.models.Films.GetAll(input.Title, input.Genres, input.Actors, input.Directors, input.Filters)
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, map[string]any{"films": films, "metadata": metadata}, nil)
-	if err != nil{
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
 }
 
-func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request){
-
-	var input struct{
-		Name string `json:"name"`
+func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Name     string `json:"name"`
 		Password string `json:"password"`
-		Email string `json:"email"`
-	}	
+		Email    string `json:"email"`
+	}
 
 	err := app.readJSON(w, r, &input)
-	if err != nil{
+	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	user := &models.User{
-		Name: input.Name,
-		Email: input.Email,
+		Name:      input.Name,
+		Email:     input.Email,
 		Activated: false,
 	}
 
 	err = user.Password.Set(input.Password)
-	if err != nil{
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
 	v := validator.New()
-	if models.ValidateUser(v, user); !v.Valid(){
+	if models.ValidateUser(v, user); !v.Valid() {
 		app.faliedValidationResponse(w, r, v.Errors)
 		return
 	}
-	
+
 	err = app.models.Users.Insert(user)
-	if err != nil{
-		switch{
+	if err != nil {
+		switch {
 		case errors.Is(err, models.ErrDuplicateEmail):
 			v.AddError("email", "a user with this email already exists")
 			app.faliedValidationResponse(w, r, v.Errors)
@@ -326,10 +326,136 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusCreated, map[string]any{"user": user}, nil)
+	// Generate activation token
+	activationToken, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeActivation)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Include both user and activation token in response
+	response := map[string]any{
+		"user": user,
+		"activation_token": struct {
+			Token  string    `json:"token"`
+			Expiry time.Time `json:"expiry"`
+		}{
+			Token:  activationToken.Plaintext,
+			Expiry: activationToken.Expiry,
+		},
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, response, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		TokenPlaintext string `json:"token"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	v := validator.New()
+
+	if models.ValidateTokenPlaintext(v, input.TokenPlaintext); !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	user, err := app.models.Users.GetForToken(models.ScopeActivation, input.TokenPlaintext)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			v.AddError("token", "invalid or expired actviation token")
+			app.faliedValidationResponse(w, r, v.Errors)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	user.Activated = true
+	err = app.models.Users.Update(user)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.models.Tokens.DeleteAllForUser(models.ScopeActivation, user.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"user": user}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
+
+func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return	
+	}
+
+	v := validator.New()
+	models.ValidateEmail(v, input.Email)
+	models.ValidatePasswordPlaintext(v, input.Password)
+	if !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	user, err := app.models.Users.GetByEmail(input.Email)
+	if err != nil {
+		switch{
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.invalidCredentialsResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	match, err := user.Password.Matches(input.Password)
+	if err != nil{
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if !match {
+		app.invalidCredentialsResponse(w, r)
+		return
+	}
+
+	token, err := app.models.Tokens.New(user.ID, 24 * time.Hour, models.ScopeAuthentication)
+	if err != nil{
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
 	if err != nil{
 		app.serverErrorResponse(w, r, err)
 	}
-	
-
 }

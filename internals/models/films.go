@@ -23,7 +23,7 @@ type Film struct {
 	Rating      float32    `json:"rating"`
 	Description string     `json:"description"`
 	Img         string     `json:"image"`
-	Version     int32      `json:"version"` // Add version field
+	Version     int32      `json:"version"` 
 }
 
 type FilmModel struct {

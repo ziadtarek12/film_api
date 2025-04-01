@@ -9,7 +9,7 @@ import (
 
 type Runtime int32
 
-var ErrInvalidRuntimeFormat = errors.New("invalid format for runtime")
+var ErrInvalidRuntimeFormat = errors.New("invalid format for runtime. Expected format: '120 mins'")
 
 func (r *Runtime) UnmarshalJSON(jsonValue []byte) error {
 	var s string

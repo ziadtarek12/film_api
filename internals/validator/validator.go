@@ -7,12 +7,10 @@ import (
 
 var (
 	EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	URLRX = regexp.MustCompile(`^https?://([\da-z\.-]+\.[a-z\.]{2,6})([\/\w \.-]*)*\.(jpg|jpeg|png|gif|bmp|svg|webp)(\?.*)?$`)
+
 )
 
-
-var (
-	URLRX = regexp.MustCompile(`^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$`)
-)
 
 type Validator struct{
 	Errors map[string]string

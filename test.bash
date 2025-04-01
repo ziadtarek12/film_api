@@ -1,93 +1,147 @@
 #!/bin/bash
 
-# Test the healthcheck endpoint
-echo "Testing healthcheck endpoint..."
-curl -i -X GET http://localhost:8080/v1/healthcheck
+# Test public routes (no auth required)
+echo "Testing public routes..."
+echo "1. Healthcheck (should succeed):"
+curl -i localhost:8080/v1/healthcheck
+echo -e "\n"
 
-# Test creating a new film
-echo -e "\n\nTesting create film endpoint..."
-curl -i -X POST http://localhost:8080/v1/films \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "The Godfather",
-    "year": 1972,
-    "runtime": "175 mins",
-    "genres": ["Crime", "Drama"],
-    "directors": ["Francis Ford Coppola"],
-    "actors": ["Marlon Brando", "Al Pacino", "James Caan"],
-    "rating": 9.2,
-    "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
-    "image": "https://example.com/godfather.jpg"
-  }'
+# Test authentication
+echo "Testing authentication..."
 
-# Test getting a film by ID (replace {id} with an actual ID after creating a film)
-echo -e "\n\nTesting get film endpoint..."
-curl -i -X GET http://localhost:8080/v1/films/3
+echo "2. Create user (should succeed):"
+CREATE_USER_RESPONSE=$(curl -i -X POST localhost:8080/v1/user -H "Content-Type: application/json" -d '{
+    "name": "testuser1",
+    "email": "test1@example.com",
+    "password": "securepassword123"
+}')
 
-# Test updating a film
-echo -e "\n\nTesting update film endpoint..."
-curl -i -X PATCH http://localhost:8080/v1/films/3 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "The Godfather: Part II",
-    "year": 1974,
-    "runtime": "202 mins",
-    "genres": ["Crime", "Drama"],
-    "directors": ["Francis Ford Coppola"],
-    "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
-    "rating": 9.0,
-    "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
-    "image": "https://example.com/godfather2.jpg"
-  }'
+echo "$CREATE_USER_RESPONSE"
+echo -e "\n"
 
-curl -i -X PATCH http://localhost:8080/v1/films/3 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "The Godfather",
-    "year": 1974,
-    "runtime": "202 mins",
-    "genres": ["Crime", "Drama"],
-    "directors": ["Francis Ford Coppola"],
-    "actors": ["Al Pacino", "Robert De Niro", "Robert Duvall"],
-    "rating": 9.0,
-    "description": "The early life and career of Vito Corleone in 1920s New York City is portrayed, while his son, Michael, expands and tightens his grip on the family crime syndicate.",
-    "image": "https://example.com/godfather2.jpg"
+# Extract activation token from create user response
+ACTIVATION_TOKEN=$(echo "$CREATE_USER_RESPONSE" | grep -oP '(?<="token":")[^"]+')
+
+echo "3. Activate user (should succeed):"
+curl -i -X PUT localhost:8080/v1/users/activated -H "Content-Type: application/json" -d '{
+    "token": "'$ACTIVATION_TOKEN'"
 }'
+echo -e "\n"
 
+# Get authentication token for user 1
+echo "4. Get authentication token for user 1 (should succeed):"
+TOKEN1=$(curl -s -X POST localhost:8080/v1/tokens/authentication -H "Content-Type: application/json" -d '{
+    "email": "test1@example.com",
+    "password": "securepassword123"
+}' | jq -r '.authentication_token.token')
 
-echo -e "\n\nTesting delete film endpoint..."
-curl -X DELETE localhost:8080/v1/films/3
+echo "Testing protected routes..."
+echo "5. Get films without auth (should fail):"
+curl -i localhost:8080/v1/films
+echo -e "\n"
 
+# Create user 2 for additional tests
+echo "6. Create user 2 (should succeed):"
+CREATE_USER2_RESPONSE=$(curl -i -X POST localhost:8080/v1/user -H "Content-Type: application/json" -d '{
+    "name": "testuser2",
+    "email": "test2@example.com",
+    "password": "securepassword123"
+}')
 
-# Add a test for race condition in updateFilmHandler
-echo "Testing race condition in updateFilmHandler..."
+echo "$CREATE_USER2_RESPONSE"
+echo -e "\n"
 
-# Create a film to test with
-FILM_ID=$(curl -s -X POST http://localhost:8080/v1/films -H "Content-Type: application/json" -d '{"title": "Race Test", "year": 2023, "runtime": "120 mins", "genres": ["Action"], "directors": ["John Doe"], "actors": ["Jane Doe"], "rating": 7.5, "description": "Test film for race condition", "image": "https://example.com/image.jpg"}' | jq -r '.film.id')
+# Extract activation token for user 2
+ACTIVATION_TOKEN2=$(echo "$CREATE_USER2_RESPONSE" | grep -oP '(?<="token":")[^"]+')
 
-# Function to update film
-update_film() {
-    curl -s -X PATCH http://localhost:8080/v1/films/$FILM_ID -H "Content-Type: application/json" -d '{"title": "Updated Title '$1'"}'
-}
+echo "7. Activate user 2 (should succeed):"
+curl -i -X PUT localhost:8080/v1/users/activated -H "Content-Type: application/json" -d '{
+    "token": "'$ACTIVATION_TOKEN2'"
+}'
+echo -e "\n"
 
-# Run multiple updates concurrently
-update_film 1 &
-update_film 2 &
-update_film 3 &
-update_film 4 &
+# Get authentication token for user 2
+echo "8. Get authentication token for user 2 (should succeed):"
+TOKEN2=$(curl -s -X POST localhost:8080/v1/tokens/authentication -H "Content-Type: application/json" -d '{
+    "email": "test2@example.com",
+    "password": "securepassword123"
+}' | jq -r '.authentication_token.token')
 
-# Wait for all updates to complete
-wait
+echo "9. Get films with auth (should succeed):"
+curl -i -H "Authorization: Bearer $TOKEN1" localhost:8080/v1/films
+echo -e "\n"
 
-# Fetch the film to check the final state
-FINAL_TITLE=$(curl -s http://localhost:8080/v1/films/$FILM_ID | jq -r '.film.title')
+# Create film with user 1
+echo "10. Create film with user 1 (should succeed):"
+CREATE_FILM_RESPONSE=$(curl -i -X POST localhost:8080/v1/films -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN1" -d '{
+    "title": "Test Film",
+    "year": 2025,
+    "runtime": "120 mins",
+    "genres": ["Action", "Adventure"],
+    "directors": ["Director Name"],
+    "actors": ["Actor Name"],
+    "rating": 8.5,
+    "description": "Test film description",
+    "image": "https://example.com/image.jpg"
+}')
 
-# Check if the final title is as expected
-if [[ $FINAL_TITLE != "Updated Title 4" ]]; then
-    echo "Race condition detected: Final title is '$FINAL_TITLE'"
-else
-    echo "No race condition detected: Final title is '$FINAL_TITLE'"
-fi
+echo "$CREATE_FILM_RESPONSE"
+echo -e "\n"
 
-#Clean up
-curl -s -X DELETE http://localhost:8080/v1/films/$FILM_ID
+# Extract film ID from create response
+FILM_ID=$(echo "$CREATE_FILM_RESPONSE" | grep -oP '(?<="id":)[0-9]+')
+
+echo "11. Get specific film without auth (should fail):"
+curl -i localhost:8080/v1/films/$FILM_ID
+echo -e "\n"
+
+# Test getting film with user 1's token
+echo "12. Get specific film with user 1's auth (should succeed):"
+curl -i -H "Authorization: Bearer $TOKEN1" localhost:8080/v1/films/$FILM_ID
+echo -e "\n"
+
+# Test getting film with user 2's token (should succeed)
+echo "13. Get specific film with user 2's auth (should succeed):"
+curl -i -H "Authorization: Bearer $TOKEN2" localhost:8080/v1/films/$FILM_ID
+echo -e "\n"
+
+# Test updating film with user 1's token
+echo "14. Update film with user 1's auth (should succeed):"
+curl -i -X PATCH localhost:8080/v1/films/$FILM_ID -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN1" -d '{
+    "title": "Updated Test Film"
+}'
+echo -e "\n"
+
+# Test updating film with user 2's token (should fail)
+echo "15. Update film with user 2's auth (should fail):"
+curl -i -X PATCH localhost:8080/v1/films/$FILM_ID -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN2" -d '{
+    "title": "Another Update"
+}'
+echo -e "\n"
+
+# Test deleting film with user 1's token
+echo "16. Delete film with user 1's auth (should succeed):"
+curl -i -X DELETE localhost:8080/v1/films/$FILM_ID -H "Authorization: Bearer $TOKEN1"
+echo -e "\n"
+
+# Test deleting film with user 2's token (should fail)
+echo "17. Delete film with user 2's auth (should fail):"
+curl -i -X DELETE localhost:8080/v1/films/$FILM_ID -H "Authorization: Bearer $TOKEN2"
+echo -e "\n"
+
+# Test using invalid token
+echo "18. Try to use invalid token (should fail):"
+curl -i -X GET localhost:8080/v1/films -H "Authorization: Bearer invalidtoken"
+echo -e "\n"
+
+# Test using malformed token
+echo "19. Try to use malformed token (should fail):"
+curl -i -X GET localhost:8080/v1/films -H "Authorization: Bearer invalid token"
+echo -e "\n"
+
+# Test using wrong auth scheme
+echo "20. Try to use wrong auth scheme (should fail):"
+curl -i -X GET localhost:8080/v1/films -H "Authorization: Basic $TOKEN1"
+echo -e "\n"
+
+echo "All tests completed!"

@@ -5,20 +5,41 @@ import (
 )
 
 func (app *application) routes() http.Handler {
-	router := http.NewServeMux()
+	// Create main router
+	mainRouter := http.NewServeMux()
 
-	handlers := map[string]func(http.ResponseWriter, *http.Request){
-		"GET /v1/healthcheck": app.healthCheckHandler,
-		"GET /v1/films/{id}":   app.getFilmHandler,
-		"POST /v1/films":      app.createFilmHandler,
-		"PATCH /v1/films/{id}":   app.updateFilmHandler,
-		"DELETE /v1/films/{id}": app.deleteFilmHandler,
-		"GET /v1/films": app.ListFilmsHandler,
-		"POST /v1/user": app.createUserHandler,
-	}
-	for url, handler := range handlers {
-		router.Handle(url, http.HandlerFunc(handler))
+	// Create public router
+	publicRouter := http.NewServeMux()
+	publicHandlers := map[string]func(http.ResponseWriter, *http.Request){
+		"GET /healthcheck":            app.healthCheckHandler,
+		"POST /user":                  app.createUserHandler,
+		"PUT /users/activated":        app.activateUserHandler,
+		"POST /tokens/authentication": app.createAuthenticationTokenHandler,
 	}
 
-	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit)
+	// Create films router
+	filmsRouter := http.NewServeMux()
+	filmsHandlers := map[string]func(http.ResponseWriter, *http.Request){
+		"GET /{id}":    app.getFilmHandler,
+		"POST /":       app.createFilmHandler,
+		"PATCH /{id}":  app.updateFilmHandler,
+		"DELETE /{id}": app.deleteFilmHandler,
+		"GET /": app.ListFilmsHandler,
+	}
+
+	// Add handlers to their respective routers
+	for url, handler := range publicHandlers {
+		publicRouter.Handle(url, app.chainMiddleware(http.HandlerFunc(handler), app.recoverPanic, app.rateLimit, app.authenticate))
+	}
+
+	for url, handler := range filmsHandlers {
+		filmsRouter.Handle(url, app.chainMiddleware(http.HandlerFunc(handler), app.recoverPanic, app.rateLimit, app.authenticate, app.requireActivatedUser))
+	}
+
+	// Mount the routers with their respective prefixes
+	mainRouter.Handle("/v1/", http.StripPrefix("/v1", publicRouter))
+
+	mainRouter.Handle("/v1/films/", http.StripPrefix("/v1/films", filmsRouter))
+	mainRouter.Handle("/v1/films", app.ensureTrailingSlash(http.StripPrefix("/v1/films", filmsRouter)))
+	return mainRouter
 }
