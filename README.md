@@ -110,7 +110,207 @@ Example Response:
 }
 ```
 
-[Additional endpoint documentation follows...]
+#### User Management
+
+##### Register User
+```http
+POST /users
+```
+
+Request Body:
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "your-secure-password"
+}
+```
+
+Response:
+```json
+{
+  "user": {
+    "id": 1,
+    "created_at": "2024-04-02T14:30:00Z",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "activated": false
+  },
+  "activation_token": {
+    "token": "ACTIVATION-TOKEN",
+    "expiry": "2024-04-03T14:30:00Z"
+  }
+}
+```
+
+##### Activate User
+```http
+PUT /users/activate
+```
+
+Request Body:
+```json
+{
+  "token": "ACTIVATION-TOKEN"
+}
+```
+
+Response:
+```json
+{
+  "user": {
+    "id": 1,
+    "created_at": "2024-04-02T14:30:00Z",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "activated": true
+  }
+}
+```
+
+##### Authentication
+```http
+POST /tokens/authentication
+```
+
+Request Body:
+```json
+{
+  "email": "john@example.com",
+  "password": "your-secure-password"
+}
+```
+
+Response:
+```json
+{
+  "authentication_token": {
+    "token": "YOUR-AUTH-TOKEN",
+    "expiry": "2024-04-03T14:30:00Z"
+  }
+}
+```
+
+#### Films (Protected Endpoints)
+
+##### Create Film
+```http
+POST /films
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Request Body:
+```json
+{
+  "title": "The Matrix",
+  "year": 1999,
+  "runtime": 136,
+  "rating": 8.7,
+  "description": "A computer hacker learns about the true nature of reality",
+  "image": "http://example.com/matrix.jpg",
+  "genres": ["Action", "Sci-Fi"],
+  "directors": ["Lana Wachowski", "Lilly Wachowski"],
+  "actors": ["Keanu Reeves", "Laurence Fishburne"]
+}
+```
+
+Response:
+```json
+{
+  "film": {
+    "id": 2,
+    "title": "The Matrix",
+    "year": 1999,
+    "runtime": "136 mins",
+    "rating": 8.7,
+    "description": "A computer hacker learns about the true nature of reality",
+    "image": "http://example.com/matrix.jpg",
+    "version": 1,
+    "genres": ["Action", "Sci-Fi"],
+    "directors": ["Lana Wachowski", "Lilly Wachowski"],
+    "actors": ["Keanu Reeves", "Laurence Fishburne"]
+  }
+}
+```
+
+##### Update Film
+```http
+PUT /films/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Request Body:
+```json
+{
+  "title": "The Matrix",
+  "year": 1999,
+  "runtime": 136,
+  "rating": 9.0,
+  "description": "Updated description",
+  "image": "http://example.com/matrix.jpg",
+  "genres": ["Action", "Sci-Fi"],
+  "directors": ["Lana Wachowski", "Lilly Wachowski"],
+  "actors": ["Keanu Reeves", "Laurence Fishburne"]
+}
+```
+
+Response:
+```json
+{
+  "film": {
+    "id": 2,
+    "title": "The Matrix",
+    "year": 1999,
+    "runtime": "136 mins",
+    "rating": 9.0,
+    "description": "Updated description",
+    "image": "http://example.com/matrix.jpg",
+    "version": 2,
+    "genres": ["Action", "Sci-Fi"],
+    "directors": ["Lana Wachowski", "Lilly Wachowski"],
+    "actors": ["Keanu Reeves", "Laurence Fishburne"]
+  }
+}
+```
+
+##### Delete Film
+```http
+DELETE /films/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Response:
+```json
+{
+  "message": "movie deleted successfully"
+}
+```
+
+### Filtering and Pagination
+
+The films listing endpoint (`GET /films`) supports various query parameters for filtering and pagination:
+
+```http
+GET /films?page=1&page_size=20&title=matrix&genres=action,sci-fi&directors=nolan&actors=keanu
+```
+
+Query Parameters:
+- `page`: Page number (default: 1)
+- `page_size`: Number of results per page (default: 20)
+- `title`: Search by title (case-insensitive, partial match)
+- `genres`: Filter by genres (comma-separated)
+- `directors`: Filter by directors (comma-separated)
+- `actors`: Filter by actors (comma-separated)
+- `sort`: Sort results by field (prefix with - for descending order)
+  - Allowed fields: id, title, year, runtime, rating
+
+### Permissions
+
+The API implements role-based access control with the following permissions:
+- `films:read`: Required for viewing film details
+- `films:write`: Required for creating, updating, and deleting films
+
+These permissions are automatically assigned upon user activation and authentication.
 
 ## Error Handling
 
