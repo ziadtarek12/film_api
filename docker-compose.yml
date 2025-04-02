@@ -15,7 +15,7 @@ services:
       - ./go.mod:/app/go.mod
       - ./go.sum:/app/go.sum
     working_dir: /app
-    command: sh -c "./bin/api -db-dsn=${FILMAPI_DB_DSN} -port=${APP_PORT:-8080} -limiter-burst=${LIMITER_BURST} -limiter-rps=${LIMITER_RPS} -limiter-enabled=${LIMITER_ENABLED}"
+    command: sh -c "./bin/api -db-dsn=${FILMAPI_DB_DSN} -port=${APP_PORT:-8080} -limiter-burst=${LIMITER_BURST} -limiter-rps=${LIMITER_RPS} -limiter-enabled=${LIMITER_ENABLED} -cors-trusted-origin=*"
     environment:
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
