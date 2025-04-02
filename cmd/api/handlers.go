@@ -459,6 +459,8 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 		return
 	}
 
+	app.models.Permissions.AddForUser(user.ID, "films:read")
+	app.models.Permissions.AddForUser(user.ID, "films:write")
 	err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
