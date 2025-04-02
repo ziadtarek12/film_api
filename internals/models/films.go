@@ -438,3 +438,14 @@ func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, fil
 
 	return nil
 }
+
+// Count returns the number of films in the database.
+func (m *FilmModel) Count() (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM films` // Adjust the table name as necessary
+	err := m.DB.QueryRowContext(context.Background(), query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}

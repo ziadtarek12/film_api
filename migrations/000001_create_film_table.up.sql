@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "films" (
     runtime integer NOT NULL,
     rating REAL NOT NULL,
     description text NOT NULL,
-    image TEXT NOT NULL,
+    image TEXT DEFAULT NULL,
     version INTEGER NOT NULL DEFAULT 1
 );
 

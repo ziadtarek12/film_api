@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"encoding/json"
 
 	"filmapi.zeyadtarek.net/internals/jsonlog"
 	"filmapi.zeyadtarek.net/internals/models"
@@ -40,6 +43,8 @@ type application struct {
 	config config
 	models models.Models
 }
+
+
 
 func main() {
 	var cfg config
@@ -78,11 +83,15 @@ func main() {
 
 	app.models = models.New(db)
 
+	// Check if the database has less than 9999 films
+	if err := populateFilmsIfNeeded(app); err != nil {
+		app.logger.PrintFatal(err, nil)
+	}
+
 	err = app.serve()
 	if err != nil {
 		app.logger.PrintFatal(err, nil)
 	}
-
 }
 
 func openDB(cfg config) (*sql.DB, error) {
@@ -110,4 +119,84 @@ func openDB(cfg config) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+// populateFilmsIfNeeded checks the film count and populates the database if needed
+func populateFilmsIfNeeded(app *application) error {
+
+	count, err := app.models.Films.Count()
+	if err != nil {
+		return err
+	}
+
+	if count >= 9999 {
+		app.logger.PrintInfo("Database already populated with 9999 films. No insertion needed.", nil)
+		return nil
+	}
+	
+	type FilmInput struct {
+		ID          int64          `json:"id"`
+		Title       string         `json:"title"`
+		Year        int32          `json:"year"`
+		Runtime     models.Runtime `json:"runtime"` // Will automatically handle "142 mins" format
+		Rating      float32        `json:"rating"`
+		Description string         `json:"description"`
+		Img         string         `json:"image"`
+		Version     int32          `json:"version"`
+		Genres      []string       `json:"genres"`
+		Directors   []string       `json:"directors"`
+		Actors      []string       `json:"actors"`
+	}
+	// Read the JSON file
+	data, err := os.ReadFile("./static/json/films.json")
+	if err != nil {
+		return err
+	}
+
+	// Parse the JSON data into the input struct
+	var filmInputs []FilmInput
+	if err := json.Unmarshal(data, &filmInputs); err != nil {
+		return err
+	}
+
+	// Insert each film into the database
+	for _, input := range filmInputs {
+		film := &models.Film{
+			Title:       input.Title,
+			Year:        input.Year,
+			Runtime:     input.Runtime, // Runtime will already be in the correct format
+			Rating:      input.Rating,
+			Description: input.Description,
+			Img:         input.Img,
+			Version:     1,
+		}
+
+		// Convert genres to models.Genre
+		film.Genres = make([]models.Genre, len(input.Genres))
+		for i, genreName := range input.Genres {
+			film.Genres[i] = models.Genre{Name: genreName}
+		}
+
+		// Convert directors to models.Director
+		film.Directors = make([]models.Director, len(input.Directors))
+		for i, directorName := range input.Directors {
+			film.Directors[i] = models.Director{Name: directorName}
+		}
+
+		// Convert actors to models.Actor
+		film.Actors = make([]models.Actor, len(input.Actors))
+		for i, actorName := range input.Actors {
+			film.Actors[i] = models.Actor{Name: actorName}
+		}
+
+		// Insert the film into the database
+		if err := app.models.Films.Insert(film); err != nil {
+			app.logger.PrintError(fmt.Errorf("error inserting film %s: %v", input.Title, err), nil)
+			continue
+		}
+
+		app.logger.PrintInfo(fmt.Sprintf("Inserted film: %s", film.Title), nil)
+	}
+
+	return nil
 }
