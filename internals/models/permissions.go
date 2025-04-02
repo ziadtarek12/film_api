@@ -3,12 +3,11 @@ package models
 import (
 	"context"
 	"database/sql"
-	"time"
 	"github.com/lib/pq"
+	"time"
 )
 
 type Permissions []string
-
 
 func (permissions Permissions) Include(code string) bool {
 	for i := range permissions {
@@ -24,7 +23,6 @@ type PermissionModel struct {
 	DB *sql.DB
 }
 
-
 func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	query := `
 		SELECT permissions.code
@@ -34,11 +32,11 @@ func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 		WHERE users.id = $1
 	`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	rows, err := model.DB.QueryContext(ctx, query, userID)
-	if err  != nil {
+	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
@@ -47,7 +45,7 @@ func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	for rows.Next() {
 		var permission string
 		err := rows.Scan(&permission)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 
@@ -61,7 +59,7 @@ func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	return permissions, nil
 }
 
-func (model PermissionModel) AddForUser(userID int64, codes ...string) (error) {
+func (model PermissionModel) AddForUser(userID int64, codes ...string) error {
 	query := `
 		INSERT INTO user_permissions
 		(user_id, permission_id)
@@ -69,7 +67,7 @@ func (model PermissionModel) AddForUser(userID int64, codes ...string) (error) {
 		SELECT $1, permission.id FROM permissions WHERE permissions.code = ANY($2)
 	`
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	_, err := model.DB.ExecContext(ctx, query, pq.Array(codes))

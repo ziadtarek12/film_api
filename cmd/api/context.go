@@ -24,4 +24,3 @@ func (app *application) contextGetUser(r *http.Request) *models.User {
 
 	return user
 }
-

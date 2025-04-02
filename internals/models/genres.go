@@ -6,11 +6,10 @@ import (
 	"encoding/json"
 )
 
-type Genre struct{
-	ID uint `json:"id"`
+type Genre struct {
+	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
-
 
 func (g Genre) MarshalJSON() ([]byte, error) {
 	return json.Marshal(g.Name)
@@ -22,7 +21,7 @@ type GenreModel struct {
 
 func (m GenreModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Genre, error) {
 	genre := &Genre{}
-	
+
 	query := `
 		WITH new_genre AS (
 			INSERT INTO genres (name)
@@ -35,16 +34,16 @@ func (m GenreModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*
 		SELECT id, name FROM genres WHERE name = $1
 		LIMIT 1
 	`
-	
+
 	err := tx.QueryRowContext(ctx, query, name).Scan(&genre.ID, &genre.Name)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return genre, nil
 }
 
-func (genre Genre) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error{
+func (genre Genre) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error {
 	query := `
 		INSERT INTO film_genres (film_id, genre_id) VALUES ($1, $2)
 		ON CONFLICT (film_id, genre_id) DO NOTHING

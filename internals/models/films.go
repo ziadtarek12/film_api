@@ -23,7 +23,7 @@ type Film struct {
 	Rating      float32    `json:"rating"`
 	Description string     `json:"description"`
 	Img         string     `json:"image"`
-	Version     int32      `json:"version"` 
+	Version     int32      `json:"version"`
 }
 
 type FilmModel struct {
@@ -238,7 +238,7 @@ func (model FilmModel) Delete(id int64) error {
 
 }
 
-func (model FilmModel) GetAll(title string, genres []string, actors []string, directors []string,filters Filters) ([]*Film, Metadata, error) {
+func (model FilmModel) GetAll(title string, genres []string, actors []string, directors []string, filters Filters) ([]*Film, Metadata, error) {
 	query := fmt.Sprintf(`
 	SELECT COUNT(*) OVER(),
 		f.*,
@@ -279,13 +279,13 @@ func (model FilmModel) GetAll(title string, genres []string, actors []string, di
 		ORDER BY %s id ASC
 		LIMIT $5 OFFSET $6
 		`, filters.sortColumn())
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	rows, err := model.DB.QueryContext(ctx, query, title, pq.Array(genres), pq.Array(actors), pq.Array(directors), filters.limit(), filters.offset())
 	if err != nil {
-		return nil, Metadata{},err
+		return nil, Metadata{}, err
 	}
 	defer rows.Close()
 
@@ -300,7 +300,7 @@ func (model FilmModel) GetAll(title string, genres []string, actors []string, di
 		Rating      float32  `json:"rating"`
 		Description string   `json:"description"`
 		Img         string   `json:"image"`
-		Version     int32    `json:"version"` 
+		Version     int32    `json:"version"`
 	}
 	films := []*Film{}
 	totalRecords := 0
@@ -322,7 +322,7 @@ func (model FilmModel) GetAll(title string, genres []string, actors []string, di
 			pq.Array(&filmInput.Directors),
 		)
 		if err != nil {
-			return nil, Metadata{},err
+			return nil, Metadata{}, err
 		}
 
 		film.ID = filmInput.ID
@@ -356,14 +356,12 @@ func (model FilmModel) GetAll(title string, genres []string, actors []string, di
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, Metadata{},err
+		return nil, Metadata{}, err
 	}
 
 	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
 	return films, metadata, nil
 }
-
-
 
 func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, film *Film) error {
 	// Batch insert directors

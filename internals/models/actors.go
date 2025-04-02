@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 )
 
-type Actor struct{
-	ID uint `json:"id"`
+type Actor struct {
+	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -15,15 +15,13 @@ func (a Actor) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.Name)
 }
 
-
-
 type ActorModel struct {
 	DB *sql.DB
 }
 
 func (m ActorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Actor, error) {
 	actor := &Actor{}
-	
+
 	query := `
 		WITH new_actor AS (
 			INSERT INTO actors (name)
@@ -36,16 +34,16 @@ func (m ActorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*
 		SELECT id, name FROM actors WHERE name = $1
 		LIMIT 1
 	`
-	
+
 	err := tx.QueryRowContext(ctx, query, name).Scan(&actor.ID, &actor.Name)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return actor, nil
 }
 
-func (actor Actor) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error{
+func (actor Actor) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error {
 	query := `
 		INSERT INTO film_actors (film_id, actor_id) VALUES ($1, $2)
 		ON CONFLICT (film_id, actor_id) DO NOTHING

@@ -13,16 +13,15 @@ import (
 	"filmapi.zeyadtarek.net/internals/validator"
 )
 
-
-func (app *application) writeJSON(w http.ResponseWriter, status int, data any, headers http.Header) error{
+func (app *application) writeJSON(w http.ResponseWriter, status int, data any, headers http.Header) error {
 	js, err := json.Marshal(data)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	js = append(js, '\n')
 
-	for key, value := range headers{
+	for key, value := range headers {
 		w.Header()[key] = value
 	}
 
@@ -33,18 +32,18 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 	return nil
 }
 
-func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any){
+func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any) {
 	env := map[string]any{
 		"error": message,
 	}
 	err := app.writeJSON(w, status, env, nil)
-	if err != nil{
+	if err != nil {
 		app.logger.PrintError(err, nil)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
-func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error){
+func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	app.logger.PrintError(err, nil)
 	message := "The server encountred a problem and could not process your request"
 	app.logError(r, err)
@@ -52,17 +51,17 @@ func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Reque
 
 }
 
-func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request){
+func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request) {
 	message := "The requested resource could not be found"
 	app.errorResponse(w, r, http.StatusNotFound, message)
 }
 
-func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.Request){
+func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("The %s method is not supported for this resource", r.Method)
 	app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
 }
 
-func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error){
+func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
@@ -83,10 +82,10 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 		switch {
 		case errors.As(err, &syntaxError):
 			return fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)
-		
+
 		case errors.Is(err, io.ErrUnexpectedEOF):
 			return errors.New("body contains badly-formed JSON")
-		
+
 		case errors.As(err, &unmarshalTypeError):
 			if unmarshalTypeError.Field != "" {
 				return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
@@ -105,7 +104,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 
 		case errors.As(err, &invalidUnmarshalError):
 			panic(err)
-		
+
 		default:
 			return err
 		}
@@ -119,32 +118,32 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 	return nil
 }
 
-func (app *application) readString(queryString url.Values, key string, defaultValue string) string{
+func (app *application) readString(queryString url.Values, key string, defaultValue string) string {
 	s := queryString.Get(key)
-	if s == ""{
+	if s == "" {
 		return defaultValue
 	}
 
 	return s
 }
 
-func (app *application) readCSV(queryString url.Values, key string, defaultValue []string)[]string{
+func (app *application) readCSV(queryString url.Values, key string, defaultValue []string) []string {
 	csv := queryString.Get(key)
-	if csv == ""{
+	if csv == "" {
 		return defaultValue
 	}
 
 	return strings.Split(csv, ",")
 }
 
-func (app *application) readInt(queryString url.Values, key string, defaultValue int, v *validator.Validator) int{
+func (app *application) readInt(queryString url.Values, key string, defaultValue int, v *validator.Validator) int {
 	str := queryString.Get(key)
-	if str == ""{
+	if str == "" {
 		return defaultValue
 	}
 
 	integer, err := strconv.Atoi(str)
-	if err != nil{
+	if err != nil {
 		v.AddError(key, "must be an integer value")
 		return defaultValue
 	}
@@ -152,11 +151,9 @@ func (app *application) readInt(queryString url.Values, key string, defaultValue
 	return integer
 }
 
-
-func (app *application) logError(r *http.Request, err error){
+func (app *application) logError(r *http.Request, err error) {
 	app.logger.PrintError(err, map[string]string{
 		"request_method": r.Method,
-		"request_url": r.URL.String(),
+		"request_url":    r.URL.String(),
 	})
 }
-

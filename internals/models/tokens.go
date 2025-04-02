@@ -12,23 +12,23 @@ import (
 )
 
 const (
-	ScopeActivation = "activation"
-    ScopeAuthentication = "authentication"
+	ScopeActivation     = "activation"
+	ScopeAuthentication = "authentication"
 )
 
 type Token struct {
-    Plaintext string `json:"token"`
-    Hash []byte      `json:"-"`
-    UserId int64    `json:"-"`
-    Expiry time.Time `json:"expiry"`
-    Scope string `json:"-"`
+	Plaintext string    `json:"token"`
+	Hash      []byte    `json:"-"`
+	UserId    int64     `json:"-"`
+	Expiry    time.Time `json:"expiry"`
+	Scope     string    `json:"-"`
 }
 
 func generateToken(userId int64, ttl time.Duration, scope string) (*Token, error) {
 	token := &Token{
 		UserId: userId,
 		Expiry: time.Now().Add(ttl),
-		Scope: scope,
+		Scope:  scope,
 	}
 
 	randomBytes := make([]byte, 16)
@@ -71,25 +71,24 @@ func (model TokenModel) Insert(token *Token) error {
 
 	args := []any{token.Hash, token.UserId, token.Expiry, token.Scope}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	_, err := model.DB.ExecContext(ctx, query, args...)
 	return err
 }
 
-func (model TokenModel) DeleteAllForUser(scopeActivation string, userID int64) error{
+func (model TokenModel) DeleteAllForUser(scopeActivation string, userID int64) error {
 
 	query := `
 		DELETE FROM tokens WHERE user_id = $1 AND scope = $2
 	`
 
 	args := []any{userID, scopeActivation}
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	_, err := model.DB.ExecContext(ctx, query, args...)
 
-	return err	
+	return err
 }
-

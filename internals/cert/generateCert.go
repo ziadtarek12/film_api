@@ -8,10 +8,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
-	"time"
 	"os"
+	"time"
 )
-
 
 const CertPath = "./tls/cert.pem"
 const KeyPath = "./tls/key.pem"

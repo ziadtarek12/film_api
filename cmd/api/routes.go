@@ -18,7 +18,7 @@ func (app *application) routes() http.Handler {
 	// Films routes
 	router.Handle("GET /v1/films", app.requirePermission("movies:read", http.HandlerFunc(app.ListFilmsHandler)))
 	router.Handle("POST /v1/films", app.requirePermission("movies:write", http.HandlerFunc(app.createFilmHandler)))
-	router.Handle("GET /v1/films/{id}", app.requirePermission("movies:read",http.HandlerFunc(app.getFilmHandler)))
+	router.Handle("GET /v1/films/{id}", app.requirePermission("movies:read", http.HandlerFunc(app.getFilmHandler)))
 	router.Handle("PATCH /v1/films/{id}", app.requirePermission("movies:write", http.HandlerFunc(app.updateFilmHandler)))
 	router.Handle("DELETE /v1/films/{id}", app.requirePermission("movies:write", http.HandlerFunc(app.deleteFilmHandler)))
 

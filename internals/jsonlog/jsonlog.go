@@ -13,22 +13,22 @@ type Level int8
 
 const (
 	LevelInfo Level = iota
-	LevelError 
+	LevelError
 	LevelFatal
 	LevelOff
 )
 
-func (l Level) String() string{
-	switch l{
+func (l Level) String() string {
+	switch l {
 	case LevelInfo:
 		return "INFO"
-	
+
 	case LevelError:
 		return "ERROR"
-	
+
 	case LevelFatal:
 		return "FATAL"
-	
+
 	default:
 		return ""
 	}
@@ -36,14 +36,14 @@ func (l Level) String() string{
 }
 
 type Logger struct {
-	out io.Writer
+	out      io.Writer
 	minLevel Level
-	mu sync.Mutex
+	mu       sync.Mutex
 }
 
-func New(out io.Writer, minLevel Level) *Logger{
+func New(out io.Writer, minLevel Level) *Logger {
 	return &Logger{
-		out: out,
+		out:      out,
 		minLevel: minLevel,
 	}
 }
@@ -61,32 +61,31 @@ func (logger *Logger) PrintFatal(err error, properties map[string]string) {
 	os.Exit(1)
 }
 
-func (logger *Logger) print(level Level, message string, properties map[string]string) (int, error){
-	if level < logger.minLevel{
+func (logger *Logger) print(level Level, message string, properties map[string]string) (int, error) {
+	if level < logger.minLevel {
 		return 0, nil
 	}
 
-	aux := struct{
-		Level string `json:"level"`
-		Time string  `json:"time"`
-		Message string `json:"message"`
+	aux := struct {
+		Level      string            `json:"level"`
+		Time       string            `json:"time"`
+		Message    string            `json:"message"`
 		Properties map[string]string `json:"properties,omitempty"`
-		Trace string `json:"trace,omitempty"`
-
+		Trace      string            `json:"trace,omitempty"`
 	}{
-		Level: level.String(),
-		Time: time.Now().Format(time.RFC3339),
-		Message: message,
+		Level:      level.String(),
+		Time:       time.Now().Format(time.RFC3339),
+		Message:    message,
 		Properties: properties,
 	}
 
-	if level >= LevelError{
+	if level >= LevelError {
 		aux.Trace = string(debug.Stack())
 	}
 
 	var line []byte
 	line, err := json.Marshal(aux)
-	if err != nil{
+	if err != nil {
 		line = []byte(LevelError.String() + ": unable to marshal log message:" + err.Error())
 	}
 
@@ -97,7 +96,6 @@ func (logger *Logger) print(level Level, message string, properties map[string]s
 
 }
 
-func (logger *Logger) Write(message []byte) (n int, err error){
+func (logger *Logger) Write(message []byte) (n int, err error) {
 	return logger.print(LevelError, string(message), nil)
 }
-

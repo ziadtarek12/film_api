@@ -331,7 +331,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	
+
 	// Generate activation token
 	activationToken, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeActivation)
 	if err != nil {
@@ -411,17 +411,16 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 
 }
 
-
 func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
 	err := app.readJSON(w, r, &input)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
-		return	
+		return
 	}
 
 	v := validator.New()
@@ -434,7 +433,7 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 
 	user, err := app.models.Users.GetByEmail(input.Email)
 	if err != nil {
-		switch{
+		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
 			app.invalidCredentialsResponse(w, r)
 		default:
@@ -444,7 +443,7 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 	}
 
 	match, err := user.Password.Matches(input.Password)
-	if err != nil{
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -454,15 +453,14 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 		return
 	}
 
-	token, err := app.models.Tokens.New(user.ID, 24 * time.Hour, models.ScopeAuthentication)
-	if err != nil{
+	token, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeAuthentication)
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
-	if err != nil{
+	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 }
-
