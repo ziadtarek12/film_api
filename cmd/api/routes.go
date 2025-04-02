@@ -5,41 +5,23 @@ import (
 )
 
 func (app *application) routes() http.Handler {
-	// Create main router
-	mainRouter := http.NewServeMux()
+	router := http.NewServeMux()
 
-	// Create public router
-	publicRouter := http.NewServeMux()
-	publicHandlers := map[string]func(http.ResponseWriter, *http.Request){
-		"GET /healthcheck":            app.healthCheckHandler,
-		"POST /user":                  app.createUserHandler,
-		"PUT /users/activated":        app.activateUserHandler,
-		"POST /tokens/authentication": app.createAuthenticationTokenHandler,
-	}
+	// Healthcheck
+	router.Handle("GET /v1/healthcheck", http.HandlerFunc(app.healthCheckHandler))
 
-	// Create films router
-	filmsRouter := http.NewServeMux()
-	filmsHandlers := map[string]func(http.ResponseWriter, *http.Request){
-		"GET /{id}":    app.getFilmHandler,
-		"POST /":       app.createFilmHandler,
-		"PATCH /{id}":  app.updateFilmHandler,
-		"DELETE /{id}": app.deleteFilmHandler,
-		"GET /": app.ListFilmsHandler,
-	}
+	// User routes
+	router.Handle("POST /v1/user", http.HandlerFunc(app.createUserHandler))
+	router.Handle("PUT /v1/users/activated", http.HandlerFunc(app.activateUserHandler))
+	router.Handle("POST /v1/tokens/authentication", http.HandlerFunc(app.createAuthenticationTokenHandler))
 
-	// Add handlers to their respective routers
-	for url, handler := range publicHandlers {
-		publicRouter.Handle(url, app.chainMiddleware(http.HandlerFunc(handler), app.recoverPanic, app.rateLimit, app.authenticate))
-	}
+	// Films routes
+	router.Handle("GET /v1/films", app.requirePermission("movies:read", http.HandlerFunc(app.ListFilmsHandler)))
+	router.Handle("POST /v1/films", app.requirePermission("movies:write", http.HandlerFunc(app.createFilmHandler)))
+	router.Handle("GET /v1/films/{id}", app.requirePermission("movies:read",http.HandlerFunc(app.getFilmHandler)))
+	router.Handle("PATCH /v1/films/{id}", app.requirePermission("movies:write", http.HandlerFunc(app.updateFilmHandler)))
+	router.Handle("DELETE /v1/films/{id}", app.requirePermission("movies:write", http.HandlerFunc(app.deleteFilmHandler)))
 
-	for url, handler := range filmsHandlers {
-		filmsRouter.Handle(url, app.chainMiddleware(http.HandlerFunc(handler), app.recoverPanic, app.rateLimit, app.authenticate, app.requireActivatedUser))
-	}
-
-	// Mount the routers with their respective prefixes
-	mainRouter.Handle("/v1/", http.StripPrefix("/v1", publicRouter))
-
-	mainRouter.Handle("/v1/films/", http.StripPrefix("/v1/films", filmsRouter))
-	mainRouter.Handle("/v1/films", app.ensureTrailingSlash(http.StripPrefix("/v1/films", filmsRouter)))
-	return mainRouter
+	// Chain middleware
+	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit, app.authenticate)
 }

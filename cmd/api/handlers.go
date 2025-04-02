@@ -326,6 +326,12 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	err = app.models.Permissions.AddForUser(user.ID, "movies:read")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	
 	// Generate activation token
 	activationToken, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeActivation)
 	if err != nil {
@@ -459,3 +465,4 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
