@@ -1,0 +1,2818 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>api: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">filmapi.zeyadtarek.net/cmd/api/context.go (100.0%)</option>
+				
+				<option value="file1">filmapi.zeyadtarek.net/cmd/api/errors.go (25.0%)</option>
+				
+				<option value="file2">filmapi.zeyadtarek.net/cmd/api/handlers.go (1.3%)</option>
+				
+				<option value="file3">filmapi.zeyadtarek.net/cmd/api/helpers.go (56.1%)</option>
+				
+				<option value="file4">filmapi.zeyadtarek.net/cmd/api/main.go (0.0%)</option>
+				
+				<option value="file5">filmapi.zeyadtarek.net/cmd/api/middleware.go (27.4%)</option>
+				
+				<option value="file6">filmapi.zeyadtarek.net/cmd/api/routes.go (100.0%)</option>
+				
+				<option value="file7">filmapi.zeyadtarek.net/cmd/api/server.go (0.0%)</option>
+				
+				<option value="file8">filmapi.zeyadtarek.net/internals/cert/generateCert.go (0.0%)</option>
+				
+				<option value="file9">filmapi.zeyadtarek.net/internals/jsonlog/jsonlog.go (87.0%)</option>
+				
+				<option value="file10">filmapi.zeyadtarek.net/internals/models/actors.go (0.0%)</option>
+				
+				<option value="file11">filmapi.zeyadtarek.net/internals/models/directors.go (0.0%)</option>
+				
+				<option value="file12">filmapi.zeyadtarek.net/internals/models/films.go (11.4%)</option>
+				
+				<option value="file13">filmapi.zeyadtarek.net/internals/models/filters.go (74.1%)</option>
+				
+				<option value="file14">filmapi.zeyadtarek.net/internals/models/genres.go (0.0%)</option>
+				
+				<option value="file15">filmapi.zeyadtarek.net/internals/models/models.go (0.0%)</option>
+				
+				<option value="file16">filmapi.zeyadtarek.net/internals/models/permissions.go (15.4%)</option>
+				
+				<option value="file17">filmapi.zeyadtarek.net/internals/models/runtime.go (100.0%)</option>
+				
+				<option value="file18">filmapi.zeyadtarek.net/internals/models/tokens.go (35.7%)</option>
+				
+				<option value="file19">filmapi.zeyadtarek.net/internals/models/users.go (32.4%)</option>
+				
+				<option value="file20">filmapi.zeyadtarek.net/internals/validator/validator.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "net/http"
+
+        "filmapi.zeyadtarek.net/internals/models"
+)
+
+type contextKey string
+
+const userContextKey = contextKey("user")
+
+func (app *application) contextSetUser(r *http.Request, user *models.User) *http.Request <span class="cov8" title="1">{
+        ctx := context.WithValue(r.Context(), userContextKey, user)
+        return r.WithContext(ctx)
+}</span>
+
+func (app *application) contextGetUser(r *http.Request) *models.User <span class="cov8" title="1">{
+        user, ok := r.Context().Value(userContextKey).(*models.User)
+        if !ok </span><span class="cov8" title="1">{
+                panic("missing user value in request context")</span>
+        }
+
+        <span class="cov8" title="1">return user</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "net/http"
+)
+
+func (app *application) faliedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) <span class="cov0" title="0">{
+        app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
+}</span>
+
+func (app *application) editConflictResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := "unable to update the record due to an edit conflict, please try again"
+        app.errorResponse(w, r, http.StatusConflict, message)
+}</span>
+
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := "rate limit exceeded"
+        app.errorResponse(w, r, http.StatusTooManyRequests, message)
+}</span>
+
+func (app *application) invalidCredentialsResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := "invalid credentials"
+        app.errorResponse(w, r, http.StatusUnauthorized, message)
+}</span>
+
+func (app *application) invalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        w.Header().Set("WWW-Authenticate", "Bearer")
+
+        message := "invalid or missing authentication token"
+        app.errorResponse(w, r, http.StatusUnauthorized, message)
+}</span>
+
+func (app *application) authenticationRequiredResponse(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        message := "you must be authenticated to access this resource"
+        app.errorResponse(w, r, http.StatusUnauthorized, message)
+}</span>
+
+func (app *application) inactiveAccountResponse(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        message := "your user account must be activated to access this resource"
+        app.errorResponse(w, r, http.StatusForbidden, message)
+}</span>
+
+func (app *application) notPermittedResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := "your user account doesn't have the necessary permissions to access this resource"
+        app.errorResponse(w, r, http.StatusForbidden, message)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import (
+        "errors"
+        "fmt"
+        "net/http"
+        "strconv"
+        "time"
+
+        "filmapi.zeyadtarek.net/internals/models"
+        "filmapi.zeyadtarek.net/internals/validator"
+)
+
+func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        env := map[string]any{
+                "status": "available",
+                "system_info": map[string]string{
+                        "environment": app.config.env,
+                        "version":     "1",
+                },
+        }
+
+        err := app.writeJSON(w, http.StatusOK, env, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+}
+
+func (app *application) getFilmHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        idStr := r.PathValue("id")
+        id, err := strconv.Atoi(idStr)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">film, err := app.models.Films.Get(int64(id))
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, models.ErrRecordNotFound) </span><span class="cov0" title="0">{
+                        app.notFoundResponse(w, r)
+                        return
+                }</span> else<span class="cov0" title="0"> {
+                        app.serverErrorResponse(w, r, err)
+                        return
+                }</span>
+        }
+        <span class="cov0" title="0">env := map[string]any{
+                "film": *film,
+        }
+        err = app.writeJSON(w, http.StatusOK, env, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+        }</span>
+
+}
+
+func (app *application) createFilmHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var input struct {
+                Title       string         `json:"title"`
+                Year        int32          `json:"year"`
+                Runtime     models.Runtime `json:"runtime"`
+                Genres      []string       `json:"genres"`
+                Directors   []string       `json:"directors"`
+                Actors      []string       `json:"actors"`
+                Rating      float32        `json:"rating"`
+                Description string         `json:"description"`
+                Image       string         `json:"image"`
+        }
+
+        err := app.readJSON(w, r, &amp;input)
+        if err != nil </span><span class="cov0" title="0">{
+                app.badRequestResponse(w, r, err)
+                return
+        }</span>
+
+        // Create the film with the basic data
+        <span class="cov0" title="0">film := &amp;models.Film{
+                Title:       input.Title,
+                Year:        input.Year,
+                Runtime:     input.Runtime,
+                Rating:      input.Rating,
+                Description: input.Description,
+                Img:         input.Image,
+        }
+
+        // Initialize the slices with proper capacity
+        film.Genres = make([]models.Genre, len(input.Genres))
+        film.Directors = make([]models.Director, len(input.Directors))
+        film.Actors = make([]models.Actor, len(input.Actors))
+
+        // Convert string arrays to model types
+        for i, name := range input.Genres </span><span class="cov0" title="0">{
+                film.Genres[i] = models.Genre{Name: name}
+        }</span>
+
+        <span class="cov0" title="0">for i, name := range input.Directors </span><span class="cov0" title="0">{
+                film.Directors[i] = models.Director{Name: name}
+        }</span>
+
+        <span class="cov0" title="0">for i, name := range input.Actors </span><span class="cov0" title="0">{
+                film.Actors[i] = models.Actor{Name: name}
+        }</span>
+
+        // Validate the film data
+        <span class="cov0" title="0">v := validator.New()
+        if models.ValidateFilm(v, film); !v.Valid() </span><span class="cov0" title="0">{
+                app.faliedValidationResponse(w, r, v.Errors)
+                return
+        }</span>
+
+        // Insert the film and its relationships
+        <span class="cov0" title="0">err = app.models.Films.Insert(film)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">headers := make(http.Header)
+        headers.Set("Location", fmt.Sprintf("/v1/films/%d", film.ID))
+
+        err = app.writeJSON(w, http.StatusCreated, map[string]any{"film": film}, headers)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+}
+
+func (app *application) updateFilmHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        idStr := r.PathValue("id")
+        id, err := strconv.ParseInt(idStr, 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                app.notFoundResponse(w, r)
+                return
+        }</span>
+
+        // Fetch the latest version of the film
+        <span class="cov0" title="0">film, err := app.models.Films.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                app.notFoundResponse(w, r)
+                return
+        }</span>
+
+        <span class="cov0" title="0">var input struct {
+                Title       *string         `json:"title"`
+                Year        *int32          `json:"year"`
+                Runtime     *models.Runtime `json:"runtime"`
+                Genres      *[]string       `json:"genres"`
+                Directors   *[]string       `json:"directors"`
+                Actors      *[]string       `json:"actors"`
+                Rating      *float32        `json:"rating"`
+                Description *string         `json:"description"`
+                Img         *string         `json:"image"`
+        }
+
+        err = app.readJSON(w, r, &amp;input)
+        if err != nil </span><span class="cov0" title="0">{
+                app.badRequestResponse(w, r, err)
+                return
+        }</span>
+
+        // Apply partial updates
+        <span class="cov0" title="0">if input.Title != nil </span><span class="cov0" title="0">{
+                film.Title = *input.Title
+        }</span>
+        <span class="cov0" title="0">if input.Year != nil </span><span class="cov0" title="0">{
+                film.Year = *input.Year
+        }</span>
+        <span class="cov0" title="0">if input.Runtime != nil </span><span class="cov0" title="0">{
+                film.Runtime = *input.Runtime
+        }</span>
+        <span class="cov0" title="0">if input.Genres != nil </span><span class="cov0" title="0">{
+                film.Genres = make([]models.Genre, len(*input.Genres))
+                for i, genre := range *input.Genres </span><span class="cov0" title="0">{
+                        film.Genres[i] = models.Genre{Name: genre}
+                }</span>
+        }
+        <span class="cov0" title="0">if input.Directors != nil </span><span class="cov0" title="0">{
+                film.Directors = make([]models.Director, len(*input.Directors))
+                for i, director := range *input.Directors </span><span class="cov0" title="0">{
+                        film.Directors[i] = models.Director{Name: director}
+                }</span>
+        }
+        <span class="cov0" title="0">if input.Actors != nil </span><span class="cov0" title="0">{
+                film.Actors = make([]models.Actor, len(*input.Actors))
+                for i, actor := range *input.Actors </span><span class="cov0" title="0">{
+                        film.Actors[i] = models.Actor{Name: actor}
+                }</span>
+        }
+        <span class="cov0" title="0">if input.Rating != nil </span><span class="cov0" title="0">{
+                film.Rating = *input.Rating
+        }</span>
+        <span class="cov0" title="0">if input.Description != nil </span><span class="cov0" title="0">{
+                film.Description = *input.Description
+        }</span>
+        <span class="cov0" title="0">if input.Img != nil </span><span class="cov0" title="0">{
+                film.Img = *input.Img
+        }</span>
+
+        // Retry the update
+        <span class="cov0" title="0">err = app.models.Films.Update(film)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, models.ErrEditConflict):<span class="cov0" title="0">
+                        app.editConflictResponse(w, r)</span>
+                default:<span class="cov0" title="0">
+                        app.serverErrorResponse(w, r, err)</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">err = app.writeJSON(w, http.StatusOK, map[string]any{"film": film}, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+        }</span>
+}
+
+func (app *application) deleteFilmHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        idStr := r.PathValue("id")
+        id, err := strconv.Atoi(idStr)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">err = app.models.Films.Delete(int64(id))
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, models.ErrRecordNotFound) </span><span class="cov0" title="0">{
+                        app.notFoundResponse(w, r)
+                        return
+                }</span> else<span class="cov0" title="0"> {
+                        app.serverErrorResponse(w, r, err)
+                        return
+                }</span>
+
+        }
+
+        <span class="cov0" title="0">err = app.writeJSON(w, http.StatusOK, map[string]any{"message": "movie deleted succesfully"}, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+}
+
+func (app *application) ListFilmsHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var input struct {
+                Title     string
+                Genres    []string
+                Directors []string
+                Actors    []string
+                Filters   models.Filters
+        }
+
+        v := validator.New()
+        queryString := r.URL.Query()
+        input.Title = app.readString(queryString, "title", "")
+        input.Actors = app.readCSV(queryString, "actors", []string{})
+        input.Directors = app.readCSV(queryString, "directors", []string{})
+        input.Genres = app.readCSV(queryString, "genres", []string{})
+        input.Filters.Page = app.readInt(queryString, "page", 1, v)
+        input.Filters.PageSize = app.readInt(queryString, "page_size", 20, v)
+        input.Filters.SortValues = app.readCSV(queryString, "sort", []string{})
+        input.Filters.SortSafelist = []string{"id", "title", "year", "runtime", "rating", "-id", "-title", "-year", "-runtime", "-rating"}
+
+        if models.ValidateFilters(v, input.Filters); !v.Valid() </span><span class="cov0" title="0">{
+                app.faliedValidationResponse(w, r, v.Errors)
+                return
+        }</span>
+
+        <span class="cov0" title="0">films, metadata, err := app.models.Films.GetAll(input.Title, input.Genres, input.Actors, input.Directors, input.Filters)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">err = app.writeJSON(w, http.StatusOK, map[string]any{"films": films, "metadata": metadata}, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+}
+
+func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var input struct {
+                Name     string `json:"name"`
+                Password string `json:"password"`
+                Email    string `json:"email"`
+        }
+
+        err := app.readJSON(w, r, &amp;input)
+        if err != nil </span><span class="cov0" title="0">{
+                app.badRequestResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">user := &amp;models.User{
+                Name:      input.Name,
+                Email:     input.Email,
+                Activated: false,
+        }
+
+        err = user.Password.Set(input.Password)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">v := validator.New()
+        if models.ValidateUser(v, user); !v.Valid() </span><span class="cov0" title="0">{
+                app.faliedValidationResponse(w, r, v.Errors)
+                return
+        }</span>
+
+        <span class="cov0" title="0">err = app.models.Users.Insert(user)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, models.ErrDuplicateEmail):<span class="cov0" title="0">
+                        v.AddError("email", "a user with this email already exists")
+                        app.faliedValidationResponse(w, r, v.Errors)</span>
+                default:<span class="cov0" title="0">
+                        app.serverErrorResponse(w, r, err)</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">err = app.models.Permissions.AddForUser(user.ID, "films:read")
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        // Generate activation token
+        <span class="cov0" title="0">activationToken, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeActivation)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        // Include both user and activation token in response
+        <span class="cov0" title="0">response := map[string]any{
+                "user": user,
+                "activation_token": struct {
+                        Token  string    `json:"token"`
+                        Expiry time.Time `json:"expiry"`
+                }{
+                        Token:  activationToken.Plaintext,
+                        Expiry: activationToken.Expiry,
+                },
+        }
+
+        err = app.writeJSON(w, http.StatusCreated, response, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+        }</span>
+}
+
+func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var input struct {
+                TokenPlaintext string `json:"token"`
+        }
+
+        err := app.readJSON(w, r, &amp;input)
+        if err != nil </span><span class="cov0" title="0">{
+                app.badRequestResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">v := validator.New()
+
+        if models.ValidateTokenPlaintext(v, input.TokenPlaintext); !v.Valid() </span><span class="cov0" title="0">{
+                app.faliedValidationResponse(w, r, v.Errors)
+                return
+        }</span>
+
+        <span class="cov0" title="0">user, err := app.models.Users.GetForToken(models.ScopeActivation, input.TokenPlaintext)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, models.ErrRecordNotFound):<span class="cov0" title="0">
+                        v.AddError("token", "invalid or expired actviation token")
+                        app.faliedValidationResponse(w, r, v.Errors)</span>
+                default:<span class="cov0" title="0">
+                        app.serverErrorResponse(w, r, err)</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+        <span class="cov0" title="0">user.Activated = true
+        err = app.models.Users.Update(user)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, models.ErrEditConflict):<span class="cov0" title="0">
+                        app.editConflictResponse(w, r)</span>
+                default:<span class="cov0" title="0">
+                        app.serverErrorResponse(w, r, err)</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">err = app.models.Tokens.DeleteAllForUser(models.ScopeActivation, user.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">err = app.writeJSON(w, http.StatusOK, map[string]any{"user": user}, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+        }</span>
+
+}
+
+func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        var input struct {
+                Email    string `json:"email"`
+                Password string `json:"password"`
+        }
+
+        err := app.readJSON(w, r, &amp;input)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">v := validator.New()
+        models.ValidateEmail(v, input.Email)
+        models.ValidatePasswordPlaintext(v, input.Password)
+        if !v.Valid() </span><span class="cov0" title="0">{
+                app.faliedValidationResponse(w, r, v.Errors)
+                return
+        }</span>
+
+        <span class="cov0" title="0">user, err := app.models.Users.GetByEmail(input.Email)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, models.ErrRecordNotFound):<span class="cov0" title="0">
+                        app.invalidCredentialsResponse(w, r)</span>
+                default:<span class="cov0" title="0">
+                        app.serverErrorResponse(w, r, err)</span>
+                }
+                <span class="cov0" title="0">return</span>
+        }
+
+        <span class="cov0" title="0">match, err := user.Password.Matches(input.Password)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if !match </span><span class="cov0" title="0">{
+                app.invalidCredentialsResponse(w, r)
+                return
+        }</span>
+
+        <span class="cov0" title="0">token, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeAuthentication)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+                return
+        }</span>
+
+        <span class="cov0" title="0">app.models.Permissions.AddForUser(user.ID, "films:read")
+        app.models.Permissions.AddForUser(user.ID, "films:write")
+        err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.serverErrorResponse(w, r, err)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
+
+import (
+        "encoding/json"
+        "errors"
+        "fmt"
+        "io"
+        "net/http"
+        "net/url"
+        "strconv"
+        "strings"
+
+        "filmapi.zeyadtarek.net/internals/validator"
+)
+
+func (app *application) writeJSON(w http.ResponseWriter, status int, data any, headers http.Header) error <span class="cov8" title="1">{
+        js, err := json.Marshal(data)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">js = append(js, '\n')
+
+        for key, value := range headers </span><span class="cov8" title="1">{
+                w.Header()[key] = value
+        }</span>
+
+        <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(status)
+        w.Write(js)
+
+        return nil</span>
+}
+
+func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any) <span class="cov8" title="1">{
+        env := map[string]any{
+                "error": message,
+        }
+        err := app.writeJSON(w, status, env, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                app.logger.PrintError(err, nil)
+                w.WriteHeader(http.StatusInternalServerError)
+        }</span>
+}
+
+func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error) <span class="cov8" title="1">{
+        app.logger.PrintError(err, nil)
+        message := "The server encountred a problem and could not process your request"
+        app.logError(r, err)
+        app.errorResponse(w, r, http.StatusInternalServerError, message)
+
+}</span>
+
+func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := "The requested resource could not be found"
+        app.errorResponse(w, r, http.StatusNotFound, message)
+}</span>
+
+func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        message := fmt.Sprintf("The %s method is not supported for this resource", r.Method)
+        app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
+}</span>
+
+func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) <span class="cov0" title="0">{
+        app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+}</span>
+
+func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any) error <span class="cov8" title="1">{
+        maxBytes := 1_048_576
+        r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
+
+        dec := json.NewDecoder(r.Body)
+        dec.DisallowUnknownFields()
+
+        err := dec.Decode(dst)
+        if err != nil </span><span class="cov8" title="1">{
+                var syntaxError *json.SyntaxError
+                var unmarshalTypeError *json.UnmarshalTypeError
+                var invalidUnmarshalError *json.InvalidUnmarshalError
+                var maxBytesError *http.MaxBytesError
+
+                switch </span>{
+                case errors.As(err, &amp;syntaxError):<span class="cov8" title="1">
+                        return fmt.Errorf("body contains badly-formed JSON (at character %d)", syntaxError.Offset)</span>
+
+                case errors.Is(err, io.ErrUnexpectedEOF):<span class="cov8" title="1">
+                        return errors.New("body contains badly-formed JSON")</span>
+
+                case errors.As(err, &amp;unmarshalTypeError):<span class="cov0" title="0">
+                        if unmarshalTypeError.Field != "" </span><span class="cov0" title="0">{
+                                return fmt.Errorf("body contains incorrect JSON type for field %q", unmarshalTypeError.Field)
+                        }</span>
+                        <span class="cov0" title="0">return fmt.Errorf("body contains incorrect JSON type (at character %d)", unmarshalTypeError.Offset)</span>
+
+                case errors.Is(err, io.EOF):<span class="cov8" title="1">
+                        return errors.New("body must not be empty")</span>
+
+                case strings.HasPrefix(err.Error(), "json: unknown field"):<span class="cov0" title="0">
+                        fieldName := strings.TrimPrefix(err.Error(), "json: unknown field ")
+                        return fmt.Errorf("body contains unknown key %s", fieldName)</span>
+
+                case errors.As(err, &amp;maxBytesError):<span class="cov0" title="0">
+                        return fmt.Errorf("body must not be larger than %d bytes", maxBytesError.Limit)</span>
+
+                case errors.As(err, &amp;invalidUnmarshalError):<span class="cov0" title="0">
+                        panic(err)</span>
+
+                default:<span class="cov0" title="0">
+                        return err</span>
+                }
+        }
+
+        // Check if there's any remaining data in the request body
+        <span class="cov8" title="1">if dec.More() </span><span class="cov0" title="0">{
+                return errors.New("body must only contain a single JSON value")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (app *application) readString(queryString url.Values, key string, defaultValue string) string <span class="cov8" title="1">{
+        s := queryString.Get(key)
+        if s == "" </span><span class="cov8" title="1">{
+                return defaultValue
+        }</span>
+
+        <span class="cov8" title="1">return s</span>
+}
+
+func (app *application) readCSV(queryString url.Values, key string, defaultValue []string) []string <span class="cov0" title="0">{
+        csv := queryString.Get(key)
+        if csv == "" </span><span class="cov0" title="0">{
+                return defaultValue
+        }</span>
+
+        <span class="cov0" title="0">return strings.Split(csv, ",")</span>
+}
+
+func (app *application) readInt(queryString url.Values, key string, defaultValue int, v *validator.Validator) int <span class="cov0" title="0">{
+        str := queryString.Get(key)
+        if str == "" </span><span class="cov0" title="0">{
+                return defaultValue
+        }</span>
+
+        <span class="cov0" title="0">integer, err := strconv.Atoi(str)
+        if err != nil </span><span class="cov0" title="0">{
+                v.AddError(key, "must be an integer value")
+                return defaultValue
+        }</span>
+
+        <span class="cov0" title="0">return integer</span>
+}
+
+func (app *application) logError(r *http.Request, err error) <span class="cov8" title="1">{
+        app.logger.PrintError(err, map[string]string{
+                "request_method": r.Method,
+                "request_url":    r.URL.String(),
+        })
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package main
+
+import (
+        "context"
+        "database/sql"
+        "flag"
+        "fmt"
+        "os"
+        "strings"
+        "time"
+
+        "encoding/json"
+
+        "filmapi.zeyadtarek.net/internals/jsonlog"
+        "filmapi.zeyadtarek.net/internals/models"
+        _ "github.com/lib/pq"
+)
+
+type config struct {
+        port int
+        env  string
+        db   struct {
+                dsn          string
+                maxOpenConns int
+                maxIdleConns int
+                maxIdleTime  string
+        }
+
+        limiter struct {
+                rps     float64
+                burst   int
+                enabled bool
+        }
+
+        cors struct {
+                trustedOrigins []string
+                enabled        bool
+        }
+}
+
+type application struct {
+        logger *jsonlog.Logger
+        config config
+        models models.Models
+}
+
+
+
+func main() <span class="cov0" title="0">{
+        var cfg config
+        flag.IntVar(&amp;cfg.port, "port", 4000, "API server port")
+        flag.StringVar(&amp;cfg.env, "env", "development", "Environment(development|staging|production)")
+        flag.StringVar(&amp;cfg.db.dsn, "db-dsn", os.Getenv("FILMAPI_DB_DSN"), "PostgreSQL DSN")
+        flag.IntVar(&amp;cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
+        flag.IntVar(&amp;cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
+        flag.StringVar(&amp;cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+        flag.Float64Var(&amp;cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
+        flag.IntVar(&amp;cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum requests per second")
+        flag.BoolVar(&amp;cfg.limiter.enabled, "limiter-enabled", true, "Enabled rate limiter")
+
+        // Use flag.Func to parse comma-separated origins
+        flag.Func("cors-trusted-origin", "CORS trusted origins (comma-separated)", func(value string) error </span><span class="cov0" title="0">{
+                cfg.cors.trustedOrigins = strings.Fields(value)
+                return nil
+        }</span>)
+
+        <span class="cov0" title="0">flag.BoolVar(&amp;cfg.cors.enabled, "cors-enabled", true, "Enable CORS")
+        flag.Parse()
+
+        logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
+
+        app := &amp;application{
+                config: cfg,
+                logger: logger,
+        }
+
+        db, err := openDB(cfg)
+        if err != nil </span><span class="cov0" title="0">{
+                app.logger.PrintFatal(err, nil)
+        }</span>
+        <span class="cov0" title="0">app.logger.PrintInfo("database connection established", nil)
+        defer db.Close()
+
+        app.models = models.New(db)
+
+        // Check if the database has less than 9999 films
+        if err := populateFilmsIfNeeded(app); err != nil </span><span class="cov0" title="0">{
+                app.logger.PrintFatal(err, nil)
+        }</span>
+
+        <span class="cov0" title="0">err = app.serve()
+        if err != nil </span><span class="cov0" title="0">{
+                app.logger.PrintFatal(err, nil)
+        }</span>
+}
+
+func openDB(cfg config) (*sql.DB, error) <span class="cov0" title="0">{
+        db, err := sql.Open("postgres", cfg.db.dsn)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">db.SetMaxOpenConns(cfg.db.maxOpenConns)
+        db.SetMaxIdleConns(cfg.db.maxIdleConns)
+
+        duration, err := time.ParseDuration(cfg.db.maxIdleTime)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">db.SetConnMaxIdleTime(duration)
+
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+
+        err = db.PingContext(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return db, nil</span>
+}
+
+// populateFilmsIfNeeded checks the film count and populates the database if needed
+func populateFilmsIfNeeded(app *application) error <span class="cov0" title="0">{
+
+        count, err := app.models.Films.Count()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if count &gt;= 9999 </span><span class="cov0" title="0">{
+                app.logger.PrintInfo("Database already populated with 9999 films. No insertion needed.", nil)
+                return nil
+        }</span>
+        
+        <span class="cov0" title="0">type FilmInput struct {
+                ID          int64          `json:"id"`
+                Title       string         `json:"title"`
+                Year        int32          `json:"year"`
+                Runtime     models.Runtime `json:"runtime"` // Will automatically handle "142 mins" format
+                Rating      float32        `json:"rating"`
+                Description string         `json:"description"`
+                Img         string         `json:"image"`
+                Version     int32          `json:"version"`
+                Genres      []string       `json:"genres"`
+                Directors   []string       `json:"directors"`
+                Actors      []string       `json:"actors"`
+        }
+        // Read the JSON file
+        data, err := os.ReadFile("./static/json/films.json")
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Parse the JSON data into the input struct
+        <span class="cov0" title="0">var filmInputs []FilmInput
+        if err := json.Unmarshal(data, &amp;filmInputs); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Insert each film into the database
+        <span class="cov0" title="0">for _, input := range filmInputs </span><span class="cov0" title="0">{
+                film := &amp;models.Film{
+                        Title:       input.Title,
+                        Year:        input.Year,
+                        Runtime:     input.Runtime, // Runtime will already be in the correct format
+                        Rating:      input.Rating,
+                        Description: input.Description,
+                        Img:         input.Img,
+                        Version:     1,
+                }
+
+                // Convert genres to models.Genre
+                film.Genres = make([]models.Genre, len(input.Genres))
+                for i, genreName := range input.Genres </span><span class="cov0" title="0">{
+                        film.Genres[i] = models.Genre{Name: genreName}
+                }</span>
+
+                // Convert directors to models.Director
+                <span class="cov0" title="0">film.Directors = make([]models.Director, len(input.Directors))
+                for i, directorName := range input.Directors </span><span class="cov0" title="0">{
+                        film.Directors[i] = models.Director{Name: directorName}
+                }</span>
+
+                // Convert actors to models.Actor
+                <span class="cov0" title="0">film.Actors = make([]models.Actor, len(input.Actors))
+                for i, actorName := range input.Actors </span><span class="cov0" title="0">{
+                        film.Actors[i] = models.Actor{Name: actorName}
+                }</span>
+
+                // Insert the film into the database
+                <span class="cov0" title="0">if err := app.models.Films.Insert(film); err != nil </span><span class="cov0" title="0">{
+                        app.logger.PrintError(fmt.Errorf("error inserting film %s: %v", input.Title, err), nil)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">app.logger.PrintInfo(fmt.Sprintf("Inserted film: %s", film.Title), nil)</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package main
+
+import (
+        "errors"
+        "fmt"
+        "net"
+        "net/http"
+        "strings"
+        "sync"
+        "time"
+
+        "filmapi.zeyadtarek.net/internals/models"
+        "filmapi.zeyadtarek.net/internals/validator"
+        "golang.org/x/time/rate"
+)
+
+func (app *application) chainMiddleware(mux http.Handler, middleware ...func(http.Handler) http.Handler) http.Handler <span class="cov8" title="1">{
+        if len(middleware) == 0 </span><span class="cov0" title="0">{
+                return mux
+        }</span>
+
+        <span class="cov8" title="1">handler := middleware[len(middleware)-1](mux)
+
+        // Chain the middleware in reverse order
+        for i := len(middleware) - 2; i &gt;= 0; i-- </span><span class="cov8" title="1">{
+                handler = middleware[i](handler)
+        }</span>
+
+        <span class="cov8" title="1">return handler</span>
+}
+
+func (app *application) recoverPanic(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                defer func() </span><span class="cov8" title="1">{
+                        if err := recover(); err != nil </span><span class="cov8" title="1">{
+                                w.Header().Set("Connection", "close")
+                                app.serverErrorResponse(w, r, fmt.Errorf("%s", err))
+                        }</span>
+                }()
+
+                <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+        })
+}
+
+func (app *application) authenticate(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                w.Header().Set("Vary", "Authorization")
+                authorizationHeader := r.Header.Get("Authorization")
+                if authorizationHeader == "" </span><span class="cov0" title="0">{
+                        r = app.contextSetUser(r, models.AnonymousUser)
+                        next.ServeHTTP(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">headerParts := strings.Split(authorizationHeader, " ")
+                if len(headerParts) != 2 || headerParts[0] != "Bearer" </span><span class="cov0" title="0">{
+                        app.invalidCredentialsResponse(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">token := headerParts[1]
+
+                v := validator.New()
+
+                if models.ValidateTokenPlaintext(v, token); !v.Valid() </span><span class="cov0" title="0">{
+                        app.invalidAuthenticationTokenResponse(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">user, err := app.models.Users.GetForToken(models.ScopeAuthentication, token)
+                if err != nil </span><span class="cov0" title="0">{
+                        switch </span>{
+                        case errors.Is(err, models.ErrRecordNotFound):<span class="cov0" title="0">
+                                app.invalidAuthenticationTokenResponse(w, r)</span>
+                        default:<span class="cov0" title="0">
+                                app.serverErrorResponse(w, r, err)</span>
+                        }
+                        <span class="cov0" title="0">return</span>
+                }
+
+                <span class="cov0" title="0">r = app.contextSetUser(r, user)
+                next.ServeHTTP(w, r)</span>
+        })
+}
+
+func (app *application) rateLimit(next http.Handler) http.Handler <span class="cov8" title="1">{
+
+        if !app.config.limiter.enabled </span><span class="cov8" title="1">{
+                return next
+        }</span>
+
+        <span class="cov0" title="0">type client struct {
+                limiter  *rate.Limiter
+                lastSeen time.Time
+        }
+
+        var (
+                mu      sync.Mutex
+                clients = make(map[string]*client)
+        )
+
+        go func() </span><span class="cov0" title="0">{
+                for </span><span class="cov0" title="0">{
+                        time.Sleep(time.Minute)
+                        mu.Lock()
+                        for ip, client := range clients </span><span class="cov0" title="0">{
+                                if time.Since(client.lastSeen) &gt; 3*time.Minute </span><span class="cov0" title="0">{
+                                        delete(clients, ip)
+                                }</span>
+                        }
+
+                        <span class="cov0" title="0">mu.Unlock()</span>
+                }
+        }()
+
+        <span class="cov0" title="0">return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                ip, _, err := net.SplitHostPort(r.RemoteAddr)
+                if err != nil </span><span class="cov0" title="0">{
+                        app.serverErrorResponse(w, r, err)
+                        return
+                }</span>
+                <span class="cov0" title="0">mu.Lock()
+                if _, found := clients[ip]; !found </span><span class="cov0" title="0">{
+                        clients[ip] = &amp;client{limiter: rate.NewLimiter(2, 4)}
+                }</span>
+
+                <span class="cov0" title="0">if !clients[ip].limiter.Allow() </span><span class="cov0" title="0">{
+                        mu.Unlock()
+                        app.rateLimitExceededResponse(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">mu.Unlock()
+                next.ServeHTTP(w, r)</span>
+        })
+}
+
+func (app *application) requireAuthenticatedUser(next http.HandlerFunc) http.HandlerFunc <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                user := app.contextGetUser(r)
+                if user.IsAnonyomous() </span><span class="cov8" title="1">{
+                        app.authenticationRequiredResponse(w, r)
+                        return
+                }</span>
+                <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+        })
+}
+
+func (app *application) requireActivatedUser(next http.Handler) http.Handler <span class="cov8" title="1">{
+        fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                user := app.contextGetUser(r)
+
+                if !user.Activated </span><span class="cov8" title="1">{
+                        app.inactiveAccountResponse(w, r)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+        })
+
+        <span class="cov8" title="1">return app.requireAuthenticatedUser(fn)</span>
+}
+
+func (app *application) ensureTrailingSlash(next http.Handler) http.Handler <span class="cov0" title="0">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                if !strings.HasSuffix(r.URL.Path, "/") </span><span class="cov0" title="0">{
+                        r.URL.Path += "/"
+                }</span>
+                <span class="cov0" title="0">next.ServeHTTP(w, r)</span>
+        })
+}
+
+func (app *application) enableCORS(next http.Handler) http.Handler <span class="cov0" title="0">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                w.Header().Add("Vary", "Origin")
+                w.Header().Add("Vary", "Access-Control-Request-Method")
+
+                origin := r.Header.Get("Origin")
+
+                if origin != "" &amp;&amp; len(app.config.cors.trustedOrigins) != 0 </span><span class="cov0" title="0">{
+                        for i := range app.config.cors.trustedOrigins </span><span class="cov0" title="0">{
+                                if origin == app.config.cors.trustedOrigins[i] </span><span class="cov0" title="0">{
+                                        w.Header().Set("Access-Control-Allow-Origin", origin)
+
+                                        if r.Method == http.MethodOptions &amp;&amp; r.Header.Get("Access-Control-Request-Method") != "" </span><span class="cov0" title="0">{
+                                                w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, PUT, PATCH, DELETE")
+                                                w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+                                                w.WriteHeader(http.StatusOK)
+                                                return
+                                        }</span>
+
+                                        <span class="cov0" title="0">next.ServeHTTP(w, r)
+                                        return</span>
+                                }
+                        }
+                }
+
+                <span class="cov0" title="0">w.WriteHeader(http.StatusForbidden)</span>
+        })
+}
+
+func (app *application) requirePermission(code string, next http.Handler) http.Handler <span class="cov8" title="1">{
+        fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                user := app.contextGetUser(r)
+                permissions, err := app.models.Permissions.GetAllForUser(user.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        app.serverErrorResponse(w, r, err)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">if !permissions.Include(code) </span><span class="cov0" title="0">{
+                        app.notPermittedResponse(w, r)
+                        return
+                }</span>
+
+                <span class="cov0" title="0">next.ServeHTTP(w, r)</span>
+        })
+
+        <span class="cov8" title="1">return app.requireActivatedUser(fn)</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package main
+
+import (
+        "net/http"
+)
+
+func (app *application) routes() http.Handler <span class="cov8" title="1">{
+        router := http.NewServeMux()
+
+        // Healthcheck
+        router.Handle("GET /v1/healthcheck", http.HandlerFunc(app.healthCheckHandler))
+
+        // User routes
+        router.Handle("POST /v1/user", http.HandlerFunc(app.createUserHandler))
+        router.Handle("PUT /v1/users/activated", http.HandlerFunc(app.activateUserHandler))
+        router.Handle("POST /v1/tokens/authentication", http.HandlerFunc(app.createAuthenticationTokenHandler))
+
+        // Films routes
+        router.Handle("GET /v1/films", app.requirePermission("films:read", http.HandlerFunc(app.ListFilmsHandler)))
+        router.Handle("POST /v1/films", app.requirePermission("films:write", http.HandlerFunc(app.createFilmHandler)))
+        router.Handle("GET /v1/films/{id}", app.requirePermission("films:read", http.HandlerFunc(app.getFilmHandler)))
+        router.Handle("PATCH /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.updateFilmHandler)))
+        router.Handle("DELETE /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.deleteFilmHandler)))
+
+        // Chain middleware
+        return app.chainMiddleware(router, app.recoverPanic, app.rateLimit, app.authenticate)
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package main
+
+import (
+        "context"
+        "errors"
+        "log"
+        "net/http"
+        "os"
+        "os/signal"
+        "strconv"
+        "syscall"
+        "time"
+)
+
+func (app *application) serve() error <span class="cov0" title="0">{
+        // tlsConfig := &amp;tls.Config{
+        //     CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+        //     MinVersion:       tls.VersionTLS12,
+        //     MaxVersion:       tls.VersionTLS12,
+        //     CipherSuites: []uint16{
+        //         tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        //         tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+        //         tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+        //         tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+        //         tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        //         tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+        //     },
+        // }
+
+        // _, err := os.Stat(cert.CertPath)
+        // if err != nil {
+        //     if os.IsNotExist(err) {
+        //         err = cert.GenerateTLSCertAndKey(cert.CertPath, cert.KeyPath)
+        //         if err != nil {
+        //             app.errorLogger.Fatal(err)
+        //         }
+        //     } else {
+        //         app.errorLogger.Fatal(err)
+        //     }
+        // }
+
+        srv := http.Server{
+                Addr:     ":" + strconv.Itoa(app.config.port),
+                Handler:  app.routes(),
+                ErrorLog: log.New(app.logger, "", 0),
+                // TLSConfig:    tlsConfig,
+                ReadTimeout:  10 * time.Second,
+                WriteTimeout: 30 * time.Second,
+                IdleTimeout:  time.Minute,
+        }
+
+        shutdownError := make(chan error)
+
+        go func() </span><span class="cov0" title="0">{
+                quit := make(chan os.Signal, 1)
+                signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+                s := &lt;-quit
+                app.logger.PrintInfo("shutting down server", map[string]string{
+                        "signal": s.String(),
+                })
+
+                ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+                defer cancel()
+
+                shutdownError &lt;- srv.Shutdown(ctx)
+        }</span>()
+        <span class="cov0" title="0">app.logger.PrintInfo("starting server", map[string]string{
+                "addr": srv.Addr,
+                "env":  app.config.env,
+        })
+
+        // err = srv.ListenAndServeTLS(cert.CertPath, cert.KeyPath)
+        err := srv.ListenAndServe()
+
+        if !errors.Is(err, http.ErrServerClosed) </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">err = &lt;-shutdownError
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package cert
+
+import (
+        "crypto/ecdsa"
+        "crypto/elliptic"
+        "crypto/rand"
+        "crypto/x509"
+        "crypto/x509/pkix"
+        "encoding/pem"
+        "math/big"
+        "os"
+        "time"
+)
+
+const CertPath = "./tls/cert.pem"
+const KeyPath = "./tls/key.pem"
+
+func GenerateTLSCertAndKey(certPath, keyPath string) error <span class="cov0" title="0">{
+        // Generate an ECDSA private key
+        privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Create a certificate template
+        <span class="cov0" title="0">template := x509.Certificate{
+                SerialNumber: big.NewInt(1),
+                Subject: pkix.Name{
+                        Organization: []string{"My Organization"},
+                },
+                NotBefore:             time.Now(),
+                NotAfter:              time.Now().Add(365 * 24 * time.Hour), // Valid for 1 year
+                KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+                ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+                BasicConstraintsValid: true,
+        }
+
+        // Self-sign the certificate
+        certBytes, err := x509.CreateCertificate(rand.Reader, &amp;template, &amp;template, &amp;privateKey.PublicKey, privateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Write the certificate to a file
+        <span class="cov0" title="0">certFile, err := os.Create(certPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer certFile.Close()
+
+        err = pem.Encode(certFile, &amp;pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Write the private key to a file
+        <span class="cov0" title="0">keyFile, err := os.Create(keyPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer keyFile.Close()
+
+        keyBytes, err := x509.MarshalECPrivateKey(privateKey)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">err = pem.Encode(keyFile, &amp;pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package jsonlog
+
+import (
+        "encoding/json"
+        "io"
+        "os"
+        "runtime/debug"
+        "sync"
+        "time"
+)
+
+type Level int8
+
+const (
+        LevelInfo Level = iota
+        LevelError
+        LevelFatal
+        LevelOff
+)
+
+func (l Level) String() string <span class="cov8" title="1">{
+        switch l </span>{
+        case LevelInfo:<span class="cov8" title="1">
+                return "INFO"</span>
+
+        case LevelError:<span class="cov8" title="1">
+                return "ERROR"</span>
+
+        case LevelFatal:<span class="cov8" title="1">
+                return "FATAL"</span>
+
+        default:<span class="cov8" title="1">
+                return ""</span>
+        }
+
+}
+
+type Logger struct {
+        out      io.Writer
+        minLevel Level
+        mu       sync.Mutex
+}
+
+func New(out io.Writer, minLevel Level) *Logger <span class="cov8" title="1">{
+        return &amp;Logger{
+                out:      out,
+                minLevel: minLevel,
+        }
+}</span>
+
+func (logger *Logger) PrintInfo(message string, properties map[string]string) <span class="cov8" title="1">{
+        logger.print(LevelInfo, message, properties)
+}</span>
+
+func (logger *Logger) PrintError(err error, properties map[string]string) <span class="cov8" title="1">{
+        logger.print(LevelError, err.Error(), properties)
+}</span>
+
+func (logger *Logger) PrintFatal(err error, properties map[string]string) <span class="cov0" title="0">{
+        logger.print(LevelFatal, err.Error(), properties)
+        os.Exit(1)
+}</span>
+
+func (logger *Logger) print(level Level, message string, properties map[string]string) (int, error) <span class="cov8" title="1">{
+        if level &lt; logger.minLevel </span><span class="cov8" title="1">{
+                return 0, nil
+        }</span>
+
+        <span class="cov8" title="1">aux := struct {
+                Level      string            `json:"level"`
+                Time       string            `json:"time"`
+                Message    string            `json:"message"`
+                Properties map[string]string `json:"properties,omitempty"`
+                Trace      string            `json:"trace,omitempty"`
+        }{
+                Level:      level.String(),
+                Time:       time.Now().Format(time.RFC3339),
+                Message:    message,
+                Properties: properties,
+        }
+
+        if level &gt;= LevelError </span><span class="cov8" title="1">{
+                aux.Trace = string(debug.Stack())
+        }</span>
+
+        <span class="cov8" title="1">var line []byte
+        line, err := json.Marshal(aux)
+        if err != nil </span><span class="cov0" title="0">{
+                line = []byte(LevelError.String() + ": unable to marshal log message:" + err.Error())
+        }</span>
+
+        <span class="cov8" title="1">logger.mu.Lock()
+        defer logger.mu.Unlock()
+
+        return logger.out.Write(append(line, '\n'))</span>
+
+}
+
+func (logger *Logger) Write(message []byte) (n int, err error) <span class="cov8" title="1">{
+        return logger.print(LevelError, string(message), nil)
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package models
+
+import (
+        "context"
+        "database/sql"
+        "encoding/json"
+)
+
+type Actor struct {
+        ID   uint   `json:"id"`
+        Name string `json:"name"`
+}
+
+func (a Actor) MarshalJSON() ([]byte, error) <span class="cov0" title="0">{
+        return json.Marshal(a.Name)
+}</span>
+
+type ActorModel struct {
+        DB *sql.DB
+}
+
+func (m ActorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Actor, error) <span class="cov0" title="0">{
+        actor := &amp;Actor{}
+
+        query := `
+                WITH new_actor AS (
+                        INSERT INTO actors (name)
+                        VALUES ($1)
+                        ON CONFLICT (name) DO NOTHING
+                        RETURNING id, name
+                )
+                SELECT id, name FROM new_actor
+                UNION ALL
+                SELECT id, name FROM actors WHERE name = $1
+                LIMIT 1
+        `
+
+        err := tx.QueryRowContext(ctx, query, name).Scan(&amp;actor.ID, &amp;actor.Name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return actor, nil</span>
+}
+
+func (actor Actor) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO film_actors (film_id, actor_id) VALUES ($1, $2)
+                ON CONFLICT (film_id, actor_id) DO NOTHING
+        `
+        args := []any{film.ID, actor.ID}
+
+        _, err := tx.ExecContext(ctx, query, args...)
+
+        return err
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package models
+
+import (
+        "context"
+        "database/sql"
+        "encoding/json"
+)
+
+type Director struct {
+        ID   uint   `json:"id"`
+        Name string `json:"name"`
+}
+
+func (d Director) MarshalJSON() ([]byte, error) <span class="cov0" title="0">{
+        return json.Marshal(d.Name)
+}</span>
+
+type DirectorModel struct {
+        DB *sql.DB
+}
+
+func (m DirectorModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Director, error) <span class="cov0" title="0">{
+        director := &amp;Director{}
+
+        query := `
+                WITH new_director AS (
+                        INSERT INTO directors (name)
+                        VALUES ($1)
+                        ON CONFLICT (name) DO NOTHING
+                        RETURNING id, name
+                )
+                SELECT id, name FROM new_director
+                UNION ALL
+                SELECT id, name FROM directors WHERE name = $1
+                LIMIT 1
+        `
+
+        err := tx.QueryRowContext(ctx, query, name).Scan(&amp;director.ID, &amp;director.Name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return director, nil</span>
+}
+
+func (director Director) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO film_directors (film_id, director_id) VALUES ($1, $2)
+                ON CONFLICT (film_id, director_id) DO NOTHING
+        `
+        args := []any{film.ID, director.ID}
+
+        _, err := tx.ExecContext(ctx, query, args...)
+
+        return err
+}</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package models
+
+import (
+        "context"
+        "database/sql"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "time"
+
+        "filmapi.zeyadtarek.net/internals/validator"
+        "github.com/lib/pq"
+)
+
+type Film struct {
+        ID          int64      `json:"id"`
+        Title       string     `json:"title"`
+        Year        int32      `json:"year"`
+        Runtime     Runtime    `json:"runtime"`
+        Genres      []Genre    `json:"genres"`
+        Directors   []Director `json:"directors"`
+        Actors      []Actor    `json:"actors"`
+        Rating      float32    `json:"rating"`
+        Description string     `json:"description"`
+        Img         string     `json:"image"`
+        Version     int32      `json:"version"`
+}
+
+type FilmModel struct {
+        DB        *sql.DB
+        Genres    GenreModel
+        Actors    ActorModel
+        Directors DirectorModel
+}
+
+func NewFilmModel(db *sql.DB) FilmModel <span class="cov0" title="0">{
+        return FilmModel{
+                DB:        db,
+                Genres:    GenreModel{DB: db},
+                Actors:    ActorModel{DB: db},
+                Directors: DirectorModel{DB: db},
+        }
+}</span>
+
+func ValidateFilm(v *validator.Validator, film *Film) <span class="cov8" title="1">{
+        v.Check(film.Title != "", "title", "must be provided")
+        v.Check(len(film.Title) &lt;= 500, "title", "must not be more than 500 bytes long")
+        v.Check(film.Year != 0, "year", "must be provided")
+        v.Check(film.Year &gt;= 1888, "year", "must be greater than 1888")
+        v.Check(film.Year &lt;= int32(time.Now().Year()), "year", "must not be in the future")
+        v.Check(film.Runtime != 0, "runtime", "must be provided")
+        v.Check(film.Runtime &gt; 0, "runtime", "must be a positive integer")
+        v.Check(film.Genres != nil, "genres", "must be provided")
+        v.Check(len(film.Genres) &gt;= 1, "genres", "must contain at least 1 genre")
+        v.Check(len(film.Genres) &lt;= 5, "genres", "must not contain more than 5 genres")
+        v.Check(validator.Unique(film.Genres), "genres", "must not contain duplicate values")
+        v.Check(validator.MatchesURL(film.Img), "image", "Must be an URL")
+}</span>
+
+func (f Film) MarshalJSON() ([]byte, error) <span class="cov8" title="1">{
+        var runtime string
+
+        if f.Runtime != 0 </span><span class="cov8" title="1">{
+                runtime = fmt.Sprintf("%d mins", f.Runtime)
+        }</span>
+
+        <span class="cov8" title="1">type FilmALias Film
+
+        aux := struct {
+                FilmALias
+                Runtime string `json:"runtime"`
+        }{
+                FilmALias(f),
+                runtime,
+        }
+
+        return json.Marshal(aux)</span>
+}
+
+func (model FilmModel) Get(id int64) (*Film, error) <span class="cov0" title="0">{
+        if id &lt; 1 </span><span class="cov0" title="0">{
+                return nil, ErrRecordNotFound
+        }</span>
+
+        <span class="cov0" title="0">query := `
+                SELECT 
+                f.id, f.title, f.year, f.runtime, f.rating, f.description, f.image, f.version,
+                (SELECT array_agg(g.name) FROM film_genres fg JOIN genres g ON fg.genre_id = g.id WHERE fg.film_id = f.id) AS genres,
+                (SELECT array_agg(a.name) FROM film_actors fa JOIN actors a ON fa.actor_id = a.id WHERE fa.film_id = f.id) AS actors,
+                (SELECT array_agg(d.name) FROM film_directors fd JOIN directors d ON fd.director_id = d.id WHERE fd.film_id = f.id) AS directors
+                FROM films f
+                WHERE f.id = $1
+        `
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        var film Film
+        var genres []string
+        var actors []string
+        var directors []string
+
+        err := model.DB.QueryRowContext(ctx, query, id).Scan(
+                &amp;film.ID,
+                &amp;film.Title,
+                &amp;film.Year,
+                &amp;film.Runtime,
+                &amp;film.Rating,
+                &amp;film.Description,
+                &amp;film.Img,
+                &amp;film.Version,
+                pq.Array(&amp;genres),
+                pq.Array(&amp;actors),
+                pq.Array(&amp;directors),
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                        return nil, ErrRecordNotFound
+                }</span>
+                <span class="cov0" title="0">return nil, err</span>
+        }
+
+        // Convert string arrays to respective types
+        <span class="cov0" title="0">film.Genres = make([]Genre, len(genres))
+        for i, genre := range genres </span><span class="cov0" title="0">{
+                film.Genres[i] = Genre{Name: genre}
+        }</span>
+
+        <span class="cov0" title="0">film.Actors = make([]Actor, len(actors))
+        for i, actor := range actors </span><span class="cov0" title="0">{
+                film.Actors[i] = Actor{Name: actor}
+        }</span>
+
+        <span class="cov0" title="0">film.Directors = make([]Director, len(directors))
+        for i, director := range directors </span><span class="cov0" title="0">{
+                film.Directors[i] = Director{Name: director}
+        }</span>
+
+        <span class="cov0" title="0">return &amp;film, nil</span>
+}
+
+func (model FilmModel) Insert(film *Film) error <span class="cov0" title="0">{
+        tx, err := model.DB.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer tx.Rollback()
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        // Insert film
+        query := `INSERT INTO films (title, year, runtime, rating, description, image, version) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+        err = tx.QueryRowContext(ctx, query, film.Title, film.Year, film.Runtime, film.Rating, film.Description, film.Img, 1).Scan(&amp;film.ID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Batch insert related entities
+        <span class="cov0" title="0">if err := model.batchInsertRelations(tx, ctx, film); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return tx.Commit()</span>
+}
+
+func (model FilmModel) Update(film *Film) error <span class="cov0" title="0">{
+        tx, err := model.DB.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">defer tx.Rollback()
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        query := `
+                UPDATE films
+                SET title = $1, year = $2, runtime = $3, rating = $4, description = $5, image = $6, version = version + 1
+                WHERE id = $7 AND version = $8
+                RETURNING version
+        `
+
+        args := []interface{}{
+                film.Title,
+                film.Year,
+                film.Runtime,
+                film.Rating,
+                film.Description,
+                film.Img,
+                film.ID,
+                film.Version,
+        }
+
+        err = tx.QueryRowContext(ctx, query, args...).Scan(&amp;film.Version)
+        if err != nil </span><span class="cov0" title="0">{
+                if errors.Is(err, sql.ErrNoRows) </span><span class="cov0" title="0">{
+                        return ErrEditConflict
+                }</span>
+                <span class="cov0" title="0">return err</span>
+        }
+
+        <span class="cov0" title="0">if err := model.batchInsertRelations(tx, ctx, film); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return tx.Commit()</span>
+}
+
+func (model FilmModel) Delete(id int64) error <span class="cov0" title="0">{
+        if id &lt; 1 </span><span class="cov0" title="0">{
+                return ErrRecordNotFound
+        }</span>
+
+        <span class="cov0" title="0">ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        query := `
+                DELETE FROM films WHERE id = $1
+        `
+
+        result, err := model.DB.ExecContext(ctx, query, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">rowsAffected, err := result.RowsAffected()
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if rowsAffected == 0 </span><span class="cov0" title="0">{
+                return ErrRecordNotFound
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+
+}
+
+func (model FilmModel) GetAll(title string, genres []string, actors []string, directors []string, filters Filters) ([]*Film, Metadata, error) <span class="cov0" title="0">{
+        query := fmt.Sprintf(`
+        SELECT COUNT(*) OVER(),
+                f.*,
+                (SELECT array_agg(g.name) FROM film_genres fg 
+                JOIN genres g ON fg.genre_id = g.id 
+                WHERE fg.film_id = f.id) AS genres,
+                (SELECT array_agg(a.name) FROM film_actors fa 
+                JOIN actors a ON fa.actor_id = a.id 
+                WHERE fa.film_id = f.id) AS actors,
+                (SELECT array_agg(d.name) FROM film_directors fd 
+                JOIN directors d ON fd.director_id = d.id 
+                WHERE fd.film_id = f.id) AS directors
+                FROM films f
+                WHERE (to_tsvector('simple', f.title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+                AND ( EXISTS (
+                SELECT 1 FROM film_genres fg 
+                JOIN genres g ON fg.genre_id = g.id 
+                WHERE fg.film_id = f.id 
+                AND g.name = ANY($2)
+                ) OR $2 = ARRAY[]::text[]
+                )
+                AND ( EXISTS ( SELECT 1 
+                FROM film_actors fa 
+                JOIN actors a ON fa.actor_id = a.id 
+                WHERE fa.film_id = f.id 
+                AND a.name = ANY($3)
+                ) OR $3 = ARRAY[]::text[]
+                )
+                AND (
+                EXISTS (
+                SELECT 1 
+                FROM film_directors fd 
+                JOIN directors d ON fd.director_id = d.id 
+                WHERE fd.film_id = f.id 
+                AND d.name = ANY($4)
+                ) OR $4 = ARRAY[]::text[]
+                )
+                ORDER BY %s id ASC
+                LIMIT $5 OFFSET $6
+                `, filters.sortColumn())
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        rows, err := model.DB.QueryContext(ctx, query, title, pq.Array(genres), pq.Array(actors), pq.Array(directors), filters.limit(), filters.offset())
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, Metadata{}, err
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        type input struct {
+                ID          int64    `json:"id"`
+                Title       string   `json:"title"`
+                Year        int32    `json:"year"`
+                Runtime     Runtime  `json:"runtime"`
+                Genres      []string `json:"genres"`
+                Directors   []string `json:"directors"`
+                Actors      []string `json:"actors"`
+                Rating      float32  `json:"rating"`
+                Description string   `json:"description"`
+                Img         string   `json:"image"`
+                Version     int32    `json:"version"`
+        }
+        films := []*Film{}
+        totalRecords := 0
+        for rows.Next() </span><span class="cov0" title="0">{
+                var filmInput input
+                var film Film
+                err := rows.Scan(
+                        &amp;totalRecords,
+                        &amp;filmInput.ID,
+                        &amp;filmInput.Title,
+                        &amp;filmInput.Year,
+                        &amp;filmInput.Runtime,
+                        &amp;filmInput.Rating,
+                        &amp;filmInput.Description,
+                        &amp;filmInput.Img,
+                        &amp;filmInput.Version,
+                        pq.Array(&amp;filmInput.Genres),
+                        pq.Array(&amp;filmInput.Actors),
+                        pq.Array(&amp;filmInput.Directors),
+                )
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, Metadata{}, err
+                }</span>
+
+                <span class="cov0" title="0">film.ID = filmInput.ID
+                film.Title = filmInput.Title
+                film.Year = filmInput.Year
+                film.Runtime = filmInput.Runtime
+                film.Rating = filmInput.Rating
+                film.Description = filmInput.Description
+                film.Img = filmInput.Img
+                film.Version = filmInput.Version
+
+                genres := make([]Genre, len(filmInput.Genres))
+                for i, genre := range filmInput.Genres </span><span class="cov0" title="0">{
+                        genres[i] = Genre{Name: genre}
+                }</span>
+                <span class="cov0" title="0">film.Genres = genres
+
+                directors := make([]Director, len(filmInput.Directors))
+                for i, director := range filmInput.Directors </span><span class="cov0" title="0">{
+                        directors[i] = Director{Name: director}
+                }</span>
+                <span class="cov0" title="0">film.Directors = directors
+
+                actors := make([]Actor, len(filmInput.Actors))
+                for i, actor := range filmInput.Actors </span><span class="cov0" title="0">{
+                        actors[i] = Actor{Name: actor}
+                }</span>
+                <span class="cov0" title="0">film.Actors = actors
+
+                films = append(films, &amp;film)</span>
+        }
+
+        <span class="cov0" title="0">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, Metadata{}, err
+        }</span>
+
+        <span class="cov0" title="0">metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+        return films, metadata, nil</span>
+}
+
+func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, film *Film) error <span class="cov0" title="0">{
+        // Batch insert directors
+        if len(film.Directors) &gt; 0 </span><span class="cov0" title="0">{
+                directorNames := make([]string, len(film.Directors))
+                for i, d := range film.Directors </span><span class="cov0" title="0">{
+                        directorNames[i] = d.Name
+                }</span>
+
+                <span class="cov0" title="0">query := `
+                        WITH inserted_directors AS (
+                                INSERT INTO directors (name)
+                                SELECT unnest($1::text[])
+                                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                                RETURNING id, name
+                        )
+                        INSERT INTO film_directors (film_id, director_id)
+                        SELECT $2, id FROM inserted_directors
+                        ON CONFLICT DO NOTHING
+                `
+                _, err := tx.ExecContext(ctx, query, pq.Array(directorNames), film.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        // Batch insert actors
+        <span class="cov0" title="0">if len(film.Actors) &gt; 0 </span><span class="cov0" title="0">{
+                actorNames := make([]string, len(film.Actors))
+                for i, a := range film.Actors </span><span class="cov0" title="0">{
+                        actorNames[i] = a.Name
+                }</span>
+
+                <span class="cov0" title="0">query := `
+                        WITH inserted_actors AS (
+                                INSERT INTO actors (name)
+                                SELECT unnest($1::text[])
+                                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                                RETURNING id, name
+                        )
+                        INSERT INTO film_actors (film_id, actor_id)
+                        SELECT $2, id FROM inserted_actors
+                        ON CONFLICT DO NOTHING
+                `
+                _, err := tx.ExecContext(ctx, query, pq.Array(actorNames), film.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        // Batch insert genres
+        <span class="cov0" title="0">if len(film.Genres) &gt; 0 </span><span class="cov0" title="0">{
+                genreNames := make([]string, len(film.Genres))
+                for i, g := range film.Genres </span><span class="cov0" title="0">{
+                        genreNames[i] = g.Name
+                }</span>
+
+                <span class="cov0" title="0">query := `
+                        WITH inserted_genres AS (
+                                INSERT INTO genres (name)
+                                SELECT unnest($1::text[])
+                                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                                RETURNING id, name
+                        )
+                        INSERT INTO film_genres (film_id, genre_id)
+                        SELECT $2, id FROM inserted_genres
+                        ON CONFLICT DO NOTHING
+                `
+                _, err := tx.ExecContext(ctx, query, pq.Array(genreNames), film.ID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Count returns the number of films in the database.
+func (m *FilmModel) Count() (int, error) <span class="cov0" title="0">{
+        var count int
+        query := `SELECT COUNT(*) FROM films` // Adjust the table name as necessary
+        err := m.DB.QueryRowContext(context.Background(), query).Scan(&amp;count)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+        <span class="cov0" title="0">return count, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package models
+
+import (
+        "fmt"
+        "math"
+        "strings"
+
+        "filmapi.zeyadtarek.net/internals/validator"
+)
+
+type Filters struct {
+        Page         int
+        PageSize     int
+        SortValues   []string
+        SortSafelist []string
+}
+
+type Metadata struct {
+        CurrentPage  int `json:"current_page,omitempty"`
+        PageSize     int `json:"page_size,omitempty"`
+        FirstPage    int `json:"first_page,omitempty"`
+        LastPage     int `json:"last_page,omitempty"`
+        TotalRecords int `json:"total_records,omitempty"`
+}
+
+func ValidateFilters(v *validator.Validator, filters Filters) <span class="cov8" title="1">{
+        v.Check(filters.Page &gt; 0, "page", "must be greater than zero")
+        v.Check(filters.Page &lt;= 10_000_000, "page", "must be a maximum of 10 million")
+        v.Check(filters.PageSize &gt; 0, "page_size", "must be greater than zero")
+        v.Check(filters.PageSize &lt;= 100, "page_size", "must be a maximum of 100")
+        for _, sortValue := range filters.SortValues </span><span class="cov8" title="1">{
+                v.Check(validator.In(sortValue, filters.SortSafelist...), "sort", "invalid sort value: "+sortValue)
+        }</span>
+}
+
+func (filter *Filters) sortColumn() string <span class="cov8" title="1">{
+        sortStr := ""
+        invalidSortVal := ""
+        for _, sortValue := range filter.SortValues </span><span class="cov8" title="1">{
+                tmp := sortStr
+                for _, safeValue := range filter.SortSafelist </span><span class="cov8" title="1">{
+                        if sortValue == safeValue </span><span class="cov8" title="1">{
+                                sortStr += strings.TrimPrefix(sortValue, "-") + sortDirection(sortValue) + ","
+                        }</span>
+
+                        <span class="cov8" title="1">invalidSortVal = sortValue</span>
+
+                }
+                <span class="cov8" title="1">if tmp == sortStr </span><span class="cov0" title="0">{
+                        fmt.Println(tmp)
+                        fmt.Println(sortStr)
+                        panic("unsafe sort parameter: " + invalidSortVal)</span>
+                }
+        }
+
+        <span class="cov8" title="1">return sortStr</span>
+}
+
+func sortDirection(sortVal string) string <span class="cov8" title="1">{
+        if strings.HasPrefix(sortVal, "-") </span><span class="cov0" title="0">{
+                return " DESC"
+        }</span>
+
+        <span class="cov8" title="1">return " ASC"</span>
+}
+
+func (filter *Filters) limit() int <span class="cov8" title="1">{
+        return filter.PageSize
+}</span>
+
+func (filter *Filters) offset() int <span class="cov8" title="1">{
+        return (filter.Page - 1) * filter.PageSize
+}</span>
+
+func calculateMetadata(totalRecords, page, pageSize int) Metadata <span class="cov0" title="0">{
+        if totalRecords == 0 </span><span class="cov0" title="0">{
+                return Metadata{}
+        }</span>
+
+        <span class="cov0" title="0">return Metadata{
+                CurrentPage:  page,
+                PageSize:     pageSize,
+                FirstPage:    1,
+                LastPage:     int(math.Ceil(float64(totalRecords) / float64(pageSize))),
+                TotalRecords: totalRecords,
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package models
+
+import (
+        "context"
+        "database/sql"
+        "encoding/json"
+)
+
+type Genre struct {
+        ID   uint   `json:"id"`
+        Name string `json:"name"`
+}
+
+func (g Genre) MarshalJSON() ([]byte, error) <span class="cov0" title="0">{
+        return json.Marshal(g.Name)
+}</span>
+
+type GenreModel struct {
+        DB *sql.DB
+}
+
+func (m GenreModel) GetOrCreate(tx *sql.Tx, name string, ctx context.Context) (*Genre, error) <span class="cov0" title="0">{
+        genre := &amp;Genre{}
+
+        query := `
+                WITH new_genre AS (
+                        INSERT INTO genres (name)
+                        VALUES ($1)
+                        ON CONFLICT (name) DO NOTHING
+                        RETURNING id, name
+                )
+                SELECT id, name FROM new_genre
+                UNION ALL
+                SELECT id, name FROM genres WHERE name = $1
+                LIMIT 1
+        `
+
+        err := tx.QueryRowContext(ctx, query, name).Scan(&amp;genre.ID, &amp;genre.Name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return genre, nil</span>
+}
+
+func (genre Genre) LinkToFilm(tx *sql.Tx, film *Film, ctx context.Context) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO film_genres (film_id, genre_id) VALUES ($1, $2)
+                ON CONFLICT (film_id, genre_id) DO NOTHING
+        `
+        args := []any{film.ID, genre.ID}
+
+        _, err := tx.ExecContext(ctx, query, args...)
+
+        return err
+}</span>
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package models
+
+import (
+        "database/sql"
+        "errors"
+)
+
+var ErrRecordNotFound = errors.New("record doesn't exist")
+var ErrEditConflict = errors.New("edit conflict")
+
+type Models struct {
+        Films FilmModel
+
+        Users UserModel
+
+        Tokens TokenModel
+
+        Permissions PermissionModel
+}
+
+func New(DB *sql.DB) Models <span class="cov0" title="0">{
+        return Models{
+                Films:       FilmModel{DB: DB},
+                Users:       UserModel{DB: DB},
+                Tokens:      TokenModel{DB: DB},
+                Permissions: PermissionModel{DB: DB},
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package models
+
+import (
+        "context"
+        "database/sql"
+        "github.com/lib/pq"
+        "time"
+)
+
+type Permissions []string
+
+func (permissions Permissions) Include(code string) bool <span class="cov8" title="1">{
+        for i := range permissions </span><span class="cov8" title="1">{
+                if code == permissions[i] </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+
+        <span class="cov8" title="1">return false</span>
+}
+
+type PermissionModel struct {
+        DB *sql.DB
+}
+
+func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) <span class="cov0" title="0">{
+        query := `
+                SELECT permissions.code
+                FROM permissions
+                INNER JOIN users_permissions ON users_permissions.permission_id = permissions.id
+                INNER JOIN users ON users_permissions.user_id = users.id
+                WHERE users.id = $1
+        `
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        rows, err := model.DB.QueryContext(ctx, query, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var permissions Permissions
+        for rows.Next() </span><span class="cov0" title="0">{
+                var permission string
+                err := rows.Scan(&amp;permission)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov0" title="0">permissions = append(permissions, permission)</span>
+        }
+
+        <span class="cov0" title="0">if err = rows.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">return permissions, nil</span>
+}
+
+func (model PermissionModel) AddForUser(userID int64, codes ...string) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO users_permissions
+                (user_id, permission_id)
+                SELECT $1, permissions.id FROM permissions WHERE permissions.code = ANY($2)
+        `
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        _, err := model.DB.ExecContext(ctx, query, userID, pq.Array(codes))
+        return err
+}</span>
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package models
+
+import (
+        "encoding/json"
+        "errors"
+        "strconv"
+        "strings"
+)
+
+type Runtime int32
+
+var ErrInvalidRuntimeFormat = errors.New("invalid format for runtime. Expected format: '120 mins'")
+
+func (r *Runtime) UnmarshalJSON(jsonValue []byte) error <span class="cov8" title="1">{
+        var s string
+        if err := json.Unmarshal(jsonValue, &amp;s); err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        // Get rid of the mins part
+        <span class="cov8" title="1">parts := strings.Split(s, " ")
+        if len(parts) != 2 || parts[1] != "mins" </span><span class="cov8" title="1">{
+                return ErrInvalidRuntimeFormat
+        }</span>
+
+        // Parse the runtime int
+        <span class="cov8" title="1">runtime, err := strconv.ParseInt(parts[0], 10, 32)
+        if err != nil </span><span class="cov8" title="1">{
+                return ErrInvalidRuntimeFormat
+        }</span>
+
+        <span class="cov8" title="1">*r = Runtime(runtime)
+
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package models
+
+import (
+        "context"
+        "crypto/rand"
+        "crypto/sha256"
+        "database/sql"
+        "encoding/base32"
+        "time"
+
+        "filmapi.zeyadtarek.net/internals/validator"
+)
+
+const (
+        ScopeActivation     = "activation"
+        ScopeAuthentication = "authentication"
+)
+
+type Token struct {
+        Plaintext string    `json:"token"`
+        Hash      []byte    `json:"-"`
+        UserId    int64     `json:"-"`
+        Expiry    time.Time `json:"expiry"`
+        Scope     string    `json:"-"`
+}
+
+func generateToken(userId int64, ttl time.Duration, scope string) (*Token, error) <span class="cov8" title="1">{
+        token := &amp;Token{
+                UserId: userId,
+                Expiry: time.Now().Add(ttl),
+                Scope:  scope,
+        }
+
+        randomBytes := make([]byte, 16)
+        _, err := rand.Read(randomBytes)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">token.Plaintext = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(randomBytes)
+        hash := sha256.Sum256([]byte(token.Plaintext))
+        token.Hash = hash[:]
+
+        return token, nil</span>
+}
+
+func ValidateTokenPlaintext(v *validator.Validator, tokenPlaintext string) <span class="cov8" title="1">{
+        v.Check(tokenPlaintext != "", "token", "must be provided")
+        v.Check(len(tokenPlaintext) == 26, "token", "must be 26 bytes long")
+}</span>
+
+type TokenModel struct {
+        DB *sql.DB
+}
+
+func (model TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, error) <span class="cov0" title="0">{
+        token, err := generateToken(userID, ttl, scope)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov0" title="0">err = model.Insert(token)
+        return token, err</span>
+}
+
+func (model TokenModel) Insert(token *Token) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO tokens (hash, user_id, expiry, scope)
+                VALUES ($1, $2, $3, $4)
+        `
+
+        args := []any{token.Hash, token.UserId, token.Expiry, token.Scope}
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        _, err := model.DB.ExecContext(ctx, query, args...)
+        return err
+}</span>
+
+func (model TokenModel) DeleteAllForUser(scopeActivation string, userID int64) error <span class="cov0" title="0">{
+
+        query := `
+                DELETE FROM tokens WHERE user_id = $1 AND scope = $2
+        `
+
+        args := []any{userID, scopeActivation}
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        _, err := model.DB.ExecContext(ctx, query, args...)
+
+        return err
+}</span>
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package models
+
+import (
+        "context"
+        "crypto/sha256"
+        "database/sql"
+        "errors"
+        "filmapi.zeyadtarek.net/internals/validator"
+        "golang.org/x/crypto/bcrypt"
+        "time"
+)
+
+var (
+        ErrDuplicateEmail = errors.New("duplicate email")
+        AnonymousUser     = &amp;User{}
+)
+
+type UserModel struct {
+        DB *sql.DB
+}
+
+func (user *User) IsAnonyomous() bool <span class="cov8" title="1">{
+        return user == AnonymousUser
+}</span>
+func (model UserModel) Insert(user *User) error <span class="cov0" title="0">{
+        query := `
+                INSERT INTO users (name, email, password_hash, activated)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, created_at, version
+        `
+
+        args := []any{user.Name, user.Email, user.Password.hash, user.Activated}
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        err := model.DB.QueryRowContext(ctx, query, args...).Scan(&amp;user.ID, &amp;user.CreatedAt, &amp;user.Version)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:<span class="cov0" title="0">
+                        return ErrDuplicateEmail</span>
+
+                default:<span class="cov0" title="0">
+                        return err</span>
+                }
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (model UserModel) GetByEmail(email string) (*User, error) <span class="cov0" title="0">{
+        query := `
+                SELECT id, created_at, name, email, password_hash, activated, version
+                FROM users
+                WHERE email = $1
+        `
+        var user User
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        err := model.DB.QueryRowContext(ctx, query, email).Scan(
+                &amp;user.ID,
+                &amp;user.CreatedAt,
+                &amp;user.Name,
+                &amp;user.Email,
+                &amp;user.Password.hash,
+                &amp;user.Activated,
+                &amp;user.Version,
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, sql.ErrNoRows):<span class="cov0" title="0">
+                        return nil, ErrRecordNotFound</span>
+
+                default:<span class="cov0" title="0">
+                        return nil, err</span>
+                }
+        }
+
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+
+func (model UserModel) Update(user *User) error <span class="cov0" title="0">{
+        query := `
+                UPDATE users
+                SET name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1
+                WHERE id = $5 AND version = $6
+                RETURNING version
+        `
+
+        args := []any{user.Name, user.Email, user.Password.hash, user.Activated, user.ID, user.Version}
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        err := model.DB.QueryRowContext(ctx, query, args...).Scan(&amp;user.Version)
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case err.Error() == `pq: duplicate key value violates unique
+                        constraint "users_email_key"`:<span class="cov0" title="0">
+                        return ErrDuplicateEmail</span>
+                case errors.Is(err, sql.ErrNoRows):<span class="cov0" title="0">
+                        return ErrEditConflict</span>
+                default:<span class="cov0" title="0">
+                        return err</span>
+                }
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+type User struct {
+        ID        int64     `json:"id"`
+        CreatedAt time.Time `json:"created_at"`
+        Name      string    `json:"name"`
+        Email     string    `json:"email"`
+        Password  password  `json:"-"`
+        Activated bool      `json:"activated"`
+        Version   int       `json:"-"`
+}
+
+type password struct {
+        plaintext *string
+        hash      []byte
+}
+
+func (pass *password) Set(plaintextPassword string) error <span class="cov8" title="1">{
+
+        hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), 12)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">pass.plaintext = &amp;plaintextPassword
+        pass.hash = hash
+
+        return nil</span>
+}
+
+func (pass *password) Matches(plaintextPassword string) (bool, error) <span class="cov8" title="1">{
+        err := bcrypt.CompareHashAndPassword(pass.hash, []byte(plaintextPassword))
+
+        if err != nil </span><span class="cov8" title="1">{
+                switch </span>{
+                case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):<span class="cov8" title="1">
+                        return false, nil</span>
+                default:<span class="cov0" title="0">
+                        return false, err</span>
+                }
+        }
+
+        <span class="cov8" title="1">return true, nil</span>
+}
+
+func ValidateEmail(v *validator.Validator, email string) <span class="cov8" title="1">{
+        v.Check(email != "", "email", "must be provided")
+        v.Check(validator.Matches(email, validator.EmailRX), "email", "must be a valid email address")
+
+}</span>
+
+func ValidatePasswordPlaintext(v *validator.Validator, password string) <span class="cov8" title="1">{
+        v.Check(password != "", "password", "must be provided")
+        v.Check(len(password) &gt;= 8, "password", "must be at least 8 bytes long")
+        v.Check(len(password) &lt;= 72, "password", "must not be more than 72 bytes long")
+}</span>
+
+func ValidateUser(v *validator.Validator, user *User) <span class="cov8" title="1">{
+        v.Check(user.Name != "", "name", "must be provided")
+        v.Check(len(user.Name) &lt;= 500, "name", "must not be more than 500 bytes")
+        ValidateEmail(v, user.Email)
+        if user.Password.plaintext != nil </span><span class="cov8" title="1">{
+                ValidatePasswordPlaintext(v, *user.Password.plaintext)
+        }</span>
+
+        <span class="cov8" title="1">if user.Password.hash == nil </span><span class="cov0" title="0">{
+                panic("missing password hash for user")</span>
+        }
+
+}
+
+func (model UserModel) GetForToken(tokenscope, tokenPlaintext string) (*User, error) <span class="cov0" title="0">{
+        tokenHash := sha256.Sum256([]byte(tokenPlaintext))
+
+        query := `
+                SELECT users.id, users.created_at, users.name, users.email, users.password_hash,
+                users.activated, users.version
+                FROM users
+                INNER JOIN tokens
+                ON users.id = tokens.user_id
+                WHERE tokens.hash = $1
+                AND tokens.scope = $2
+                AND tokens.expiry &gt; $3
+        `
+
+        args := []any{tokenHash[:], tokenscope, time.Now()}
+
+        var user User
+
+        ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+        defer cancel()
+
+        err := model.DB.QueryRowContext(ctx, query, args...).Scan(
+                &amp;user.ID,
+                &amp;user.CreatedAt,
+                &amp;user.Name,
+                &amp;user.Email,
+                &amp;user.Password.hash,
+                &amp;user.Activated,
+                &amp;user.Version,
+        )
+
+        if err != nil </span><span class="cov0" title="0">{
+                switch </span>{
+                case errors.Is(err, sql.ErrNoRows):<span class="cov0" title="0">
+                        return nil, ErrRecordNotFound</span>
+                default:<span class="cov0" title="0">
+                        return nil, err</span>
+                }
+        }
+
+        <span class="cov0" title="0">return &amp;user, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package validator
+
+import (
+        "regexp"
+)
+
+var (
+        EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&amp;'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+        URLRX   = regexp.MustCompile(`^https?://([\da-z\.-]+\.[a-z\.]{2,6})([\/\w \.-]*)*\.(jpg|jpeg|png|gif|bmp|svg|webp)(\?.*)?$`)
+)
+
+type Validator struct {
+        Errors map[string]string
+}
+
+func New() *Validator <span class="cov8" title="1">{
+        return &amp;Validator{Errors: make(map[string]string)}
+}</span>
+
+func (v *Validator) Valid() bool <span class="cov8" title="1">{
+        return len(v.Errors) == 0
+}</span>
+
+func (v *Validator) AddError(key, message string) <span class="cov8" title="1">{
+        if _, exists := v.Errors[key]; !exists </span><span class="cov8" title="1">{
+                v.Errors[key] = message
+        }</span>
+}
+
+func (v *Validator) Check(ok bool, key, message string) <span class="cov8" title="1">{
+        if !ok </span><span class="cov8" title="1">{
+                v.AddError(key, message)
+        }</span>
+}
+
+func In(value string, list ...string) bool <span class="cov8" title="1">{
+        for i := range list </span><span class="cov8" title="1">{
+                if value == list[i] </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+
+        <span class="cov8" title="1">return false</span>
+}
+
+func Matches(value string, rx *regexp.Regexp) bool <span class="cov8" title="1">{
+        return rx.MatchString(value)
+}</span>
+
+func MatchesEmail(email string) bool <span class="cov8" title="1">{
+        return EmailRX.MatchString(email)
+}</span>
+
+func Unique[T comparable](values []T) bool <span class="cov8" title="1">{
+        uniqueValues := make(map[T]bool)
+        for _, val := range values </span><span class="cov8" title="1">{
+                uniqueValues[val] = true
+
+        }</span>
+
+        <span class="cov8" title="1">return len(values) == len(uniqueValues)</span>
+}
+
+func MatchesURL(URL string) bool <span class="cov8" title="1">{
+        return URLRX.MatchString(URL)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
