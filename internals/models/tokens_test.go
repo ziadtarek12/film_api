@@ -47,13 +47,13 @@ func TestGenerateToken(t *testing.T) {
 			if len(token.Hash) == 0 {
 				t.Error("generateToken() token.Hash is empty")
 			}
-			
+
 			// Check that expiry is in the future and approximately matches the TTL
 			now := time.Now()
 			if token.Expiry.Before(now) {
 				t.Error("generateToken() token.Expiry is in the past")
 			}
-			
+
 			expectedExpiry := now.Add(tt.ttl)
 			diff := token.Expiry.Sub(expectedExpiry)
 			if diff < -time.Second || diff > time.Second {
@@ -66,29 +66,29 @@ func TestGenerateToken(t *testing.T) {
 // TestValidateTokenPlaintext tests the token validation function
 func TestValidateTokenPlaintext(t *testing.T) {
 	tests := []struct {
-		name          string
+		name           string
 		tokenPlaintext string
-		wantValid     bool
+		wantValid      bool
 	}{
 		{
-			name:          "Valid token",
+			name:           "Valid token",
 			tokenPlaintext: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", // 26 characters
-			wantValid:     true,
+			wantValid:      true,
 		},
 		{
-			name:          "Empty token",
+			name:           "Empty token",
 			tokenPlaintext: "",
-			wantValid:     false,
+			wantValid:      false,
 		},
 		{
-			name:          "Token too short",
+			name:           "Token too short",
 			tokenPlaintext: "ABCDEFGHIJ",
-			wantValid:     false,
+			wantValid:      false,
 		},
 		{
-			name:          "Token too long",
+			name:           "Token too long",
 			tokenPlaintext: "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJ",
-			wantValid:     false,
+			wantValid:      false,
 		},
 	}
 

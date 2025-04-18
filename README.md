@@ -66,11 +66,109 @@ Authorization: Bearer <your-token>
 
 ### Endpoints
 
-#### Films
+#### Health Check
+
+```http
+GET /v1/healthcheck
+```
+
+Response:
+```json
+{
+  "status": "available",
+  "system_info": {
+    "environment": "development",
+    "version": "1.0.0"
+  }
+}
+```
+
+#### User Management
+
+##### Register User
+```http
+POST /v1/users
+```
+
+Request Body:
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "your-secure-password"
+}
+```
+
+Response:
+```json
+{
+  "user": {
+    "id": 1,
+    "created_at": "2024-04-02T14:30:00Z",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "activated": false
+  },
+  "activation_token": {
+    "token": "ACTIVATION-TOKEN",
+    "expiry": "2024-04-03T14:30:00Z"
+  }
+}
+```
+
+##### Activate User
+```http
+PUT /v1/users/activate
+```
+
+Request Body:
+```json
+{
+  "token": "ACTIVATION-TOKEN"
+}
+```
+
+Response:
+```json
+{
+  "user": {
+    "id": 1,
+    "created_at": "2024-04-02T14:30:00Z",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "activated": true
+  }
+}
+```
+
+##### Authentication
+```http
+POST /v1/tokens/authentication
+```
+
+Request Body:
+```json
+{
+  "email": "john@example.com",
+  "password": "your-secure-password"
+}
+```
+
+Response:
+```json
+{
+  "authentication_token": {
+    "token": "YOUR-AUTH-TOKEN",
+    "expiry": "2024-04-03T14:30:00Z"
+  }
+}
+```
+
+#### Films (Protected Endpoints)
 
 ##### List Films
 ```http
-GET /films
+GET /v1/films
 ```
 
 Query Parameters:
@@ -110,92 +208,9 @@ Example Response:
 }
 ```
 
-#### User Management
-
-##### Register User
-```http
-POST /users
-```
-
-Request Body:
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "your-secure-password"
-}
-```
-
-Response:
-```json
-{
-  "user": {
-    "id": 1,
-    "created_at": "2024-04-02T14:30:00Z",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "activated": false
-  },
-  "activation_token": {
-    "token": "ACTIVATION-TOKEN",
-    "expiry": "2024-04-03T14:30:00Z"
-  }
-}
-```
-
-##### Activate User
-```http
-PUT /users/activate
-```
-
-Request Body:
-```json
-{
-  "token": "ACTIVATION-TOKEN"
-}
-```
-
-Response:
-```json
-{
-  "user": {
-    "id": 1,
-    "created_at": "2024-04-02T14:30:00Z",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "activated": true
-  }
-}
-```
-
-##### Authentication
-```http
-POST /tokens/authentication
-```
-
-Request Body:
-```json
-{
-  "email": "john@example.com",
-  "password": "your-secure-password"
-}
-```
-
-Response:
-```json
-{
-  "authentication_token": {
-    "token": "YOUR-AUTH-TOKEN",
-    "expiry": "2024-04-03T14:30:00Z"
-  }
-}
-```
-
-#### Films (Protected Endpoints)
-
 ##### Create Film
 ```http
-POST /films
+POST /v1/films
 Authorization: Bearer YOUR-AUTH-TOKEN
 ```
 
@@ -233,9 +248,34 @@ Response:
 }
 ```
 
+##### Get Film by ID
+```http
+GET /v1/films/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Response:
+```json
+{
+  "film": {
+    "id": 2,
+    "title": "The Matrix",
+    "year": 1999,
+    "runtime": "136 mins",
+    "rating": 8.7,
+    "description": "A computer hacker learns about the true nature of reality",
+    "image": "http://example.com/matrix.jpg",
+    "version": 1,
+    "genres": ["Action", "Sci-Fi"],
+    "directors": ["Lana Wachowski", "Lilly Wachowski"],
+    "actors": ["Keanu Reeves", "Laurence Fishburne"]
+  }
+}
+```
+
 ##### Update Film
 ```http
-PUT /films/{id}
+PATCH /v1/films/{id}
 Authorization: Bearer YOUR-AUTH-TOKEN
 ```
 
@@ -275,7 +315,7 @@ Response:
 
 ##### Delete Film
 ```http
-DELETE /films/{id}
+DELETE /v1/films/{id}
 Authorization: Bearer YOUR-AUTH-TOKEN
 ```
 
@@ -288,10 +328,10 @@ Response:
 
 ### Filtering and Pagination
 
-The films listing endpoint (`GET /films`) supports various query parameters for filtering and pagination:
+The films listing endpoint (`GET /v1/films`) supports various query parameters for filtering and pagination:
 
 ```http
-GET /films?page=1&page_size=20&title=matrix&genres=action,sci-fi&directors=nolan&actors=keanu
+GET /v1/films?page=1&page_size=20&title=matrix&genres=action,sci-fi&directors=nolan&actors=keanu
 ```
 
 Query Parameters:
@@ -425,7 +465,7 @@ Here are some examples of how to interact with the Film API using `curl` command
 **Request:**
 
 ```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/films
+curl -i -H 'Accept: application/json' http://localhost:4000/v1/films
 ```
 
 **Response:**
@@ -476,7 +516,7 @@ curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X POS
   "genres": ["Action", "Sci-Fi"],
   "directors": ["Lana Wachowski", "Lilly Wachowski"],
   "actors": ["Keanu Reeves", "Laurence Fishburne"]
-}' http://localhost:4000/films
+}' http://localhost:4000/v1/films
 ```
 
 **Response:**
@@ -509,7 +549,7 @@ Content-Length: 123
 **Request:**
 
 ```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/films/1
+curl -i -H 'Accept: application/json' http://localhost:4000/v1/films/1
 ```
 
 **Response:**
@@ -551,7 +591,7 @@ curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X PAT
   "genres": ["Sci-Fi", "Thriller"],
   "directors": ["Christopher Nolan"],
   "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-}' http://localhost:4000/films/1
+}' http://localhost:4000/v1/films/1
 ```
 
 **Response:**
@@ -583,7 +623,7 @@ Content-Length: 123
 **Request:**
 
 ```bash
-curl -i -H 'Accept: application/json' -X DELETE http://localhost:4000/films/1
+curl -i -H 'Accept: application/json' -X DELETE http://localhost:4000/v1/films/1
 ```
 
 **Response:**
@@ -596,4 +636,4 @@ Content-Length: 41
 {
     "message": "movie deleted succesfully"
 }
-``` 
+```

@@ -11,8 +11,8 @@ func (app *application) routes() http.Handler {
 	router.Handle("GET /v1/healthcheck", http.HandlerFunc(app.healthCheckHandler))
 
 	// User routes
-	router.Handle("POST /v1/user", http.HandlerFunc(app.createUserHandler))
-	router.Handle("PUT /v1/users/activated", http.HandlerFunc(app.activateUserHandler))
+	router.Handle("POST /v1/users", http.HandlerFunc(app.createUserHandler))
+	router.Handle("PUT /v1/users/activate", http.HandlerFunc(app.activateUserHandler))
 	router.Handle("POST /v1/tokens/authentication", http.HandlerFunc(app.createAuthenticationTokenHandler))
 
 	// Films routes
