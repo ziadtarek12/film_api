@@ -23,5 +23,5 @@ func (app *application) routes() http.Handler {
 	router.Handle("DELETE /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.deleteFilmHandler)))
 
 	// Chain middleware
-	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit, app.authenticate)
+	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit, app.authenticate, app.enableCORS)
 }
