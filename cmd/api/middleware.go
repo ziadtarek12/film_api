@@ -177,27 +177,38 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 
 		origin := r.Header.Get("Origin")
 
-		if origin != "" && len(app.config.cors.trustedOrigins) != 0 {
+		// Skip CORS handling for requests with no Origin header (same-origin requests)
+		if origin == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Check if CORS is enabled and there are trusted origins
+		if app.config.cors.enabled && len(app.config.cors.trustedOrigins) > 0 {
 			// Check for wildcard origin in trusted origins
-			for i := range app.config.cors.trustedOrigins {
-				if app.config.cors.trustedOrigins[i] == "*" {
+			for _, trustedOrigin := range app.config.cors.trustedOrigins {
+				if trustedOrigin == "*" {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 
+					// Handle preflight requests
 					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-						w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, PUT, PATCH, DELETE")
+						w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, PATCH, DELETE")
 						w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+						w.Header().Set("Access-Control-Max-Age", "3600")
 						w.WriteHeader(http.StatusOK)
 						return
 					}
 
 					next.ServeHTTP(w, r)
 					return
-				} else if origin == app.config.cors.trustedOrigins[i] {
+				} else if origin == trustedOrigin {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 
+					// Handle preflight requests
 					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-						w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, PUT, PATCH, DELETE")
+						w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, PATCH, DELETE")
 						w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+						w.Header().Set("Access-Control-Max-Age", "3600")
 						w.WriteHeader(http.StatusOK)
 						return
 					}
@@ -208,7 +219,9 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 			}
 		}
 
-		w.WriteHeader(http.StatusForbidden)
+		// For non-trusted origins or when CORS is disabled, continue without CORS headers
+		// but don't block the request - this is the critical change
+		next.ServeHTTP(w, r)
 	})
 }
 

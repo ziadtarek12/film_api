@@ -16,7 +16,7 @@ api/build:
 
 
 ## run/api : Run the api
-.PHONY: api/run
+.PHONY: 
 api/run:
 	./bin/api -db-dsn=${FILMAPI_DB_DSN} -port=${APP_PORT} -limiter-burst=${LIMITER_BURST} -limiter-rps=${LIMITER_RPS} -limiter-enabled=${LIMITER_ENABLED} -cors-trusted-origin=*
 
