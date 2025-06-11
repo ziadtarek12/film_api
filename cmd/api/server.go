@@ -64,6 +64,7 @@ func (app *application) serve() error {
 
 		shutdownError <- srv.Shutdown(ctx)
 	}()
+
 	app.logger.PrintInfo("starting server", map[string]string{
 		"addr": srv.Addr,
 		"env":  app.config.env,

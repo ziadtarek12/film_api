@@ -184,7 +184,7 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 		}
 
 		// Check if CORS is enabled and there are trusted origins
-		if app.config.cors.enabled && len(app.config.cors.trustedOrigins) > 0 {
+		if len(app.config.cors.trustedOrigins) > 0 {
 			// Check for wildcard origin in trusted origins
 			for _, trustedOrigin := range app.config.cors.trustedOrigins {
 				if trustedOrigin == "*" {
@@ -221,7 +221,8 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 
 		// For non-trusted origins or when CORS is disabled, continue without CORS headers
 		// but don't block the request - this is the critical change
-		next.ServeHTTP(w, r)
+		w.WriteHeader(http.StatusForbidden)
+
 	})
 }
 
