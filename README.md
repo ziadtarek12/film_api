@@ -8,7 +8,9 @@ A RESTful API service for managing a film database, built with Go. This API prov
 - **Rich Film Data**: Support for genres, directors, actors, and ratings
 - **User Authentication**: Secure user registration and authentication
 - **Permission-based Access**: Role-based access control for API endpoints
-- **Pagination & Filtering**: Advanced query options for film listings
+- **Personal Watchlists**: Users can create and manage their own film watchlists
+- **Watchlist Features**: Priority system, notes, watch tracking, and rating system
+- **Pagination & Filtering**: Advanced query options for film listings and watchlists
 - **CORS Support**: Configurable Cross-Origin Resource Sharing
 - **Rate Limiting**: Customizable rate limiting for API endpoints
 
@@ -326,6 +328,214 @@ Response:
 }
 ```
 
+#### Watchlist Management (Protected Endpoints)
+
+The watchlist feature allows authenticated users to manage their personal list of films they want to watch or have watched.
+
+##### Add Film to Watchlist
+```http
+POST /v1/watchlist
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Request Body:
+```json
+{
+  "film_id": 1,
+  "notes": "Recommended by friend",
+  "priority": 8
+}
+```
+
+Response:
+```json
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Recommended by friend",
+    "priority": 8,
+    "watched": false,
+    "watched_at": null,
+    "rating": null,
+    "version": 1,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+##### Get User's Watchlist
+```http
+GET /v1/watchlist
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Query Parameters:
+- `page` (int): Page number (default: 1)
+- `page_size` (int): Results per page (default: 20)
+- `watched` (boolean): Filter by watched status (`true`, `false`)
+- `priority` (int): Filter by priority level (1-10)
+- `sort` (string): Sort field (-field for descending)
+  - Allowed fields: id, added_at, priority, watched
+
+Example Response:
+```json
+{
+  "watchlist": [
+    {
+      "id": 1,
+      "user_id": 123,
+      "film_id": 1,
+      "added_at": "2024-06-11T14:30:00Z",
+      "notes": "Recommended by friend",
+      "priority": 8,
+      "watched": false,
+      "watched_at": null,
+      "rating": null,
+      "version": 1,
+      "film": {
+        "id": 1,
+        "title": "Inception",
+        "year": 2010,
+        "runtime": "148 mins",
+        "rating": 8.8,
+        "description": "A mind-bending thriller",
+        "image": "http://example.com/inception.jpg",
+        "genres": ["Sci-Fi", "Thriller"],
+        "directors": ["Christopher Nolan"],
+        "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+      }
+    }
+  ],
+  "metadata": {
+    "current_page": 1,
+    "page_size": 20,
+    "first_page": 1,
+    "last_page": 1,
+    "total_records": 1
+  }
+}
+```
+
+##### Get Watchlist Entry
+```http
+GET /v1/watchlist/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Response:
+```json
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Recommended by friend",
+    "priority": 8,
+    "watched": true,
+    "watched_at": "2024-06-12T20:15:00Z",
+    "rating": 9,
+    "version": 2,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+##### Update Watchlist Entry
+```http
+PATCH /v1/watchlist/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Request Body (all fields optional):
+```json
+{
+  "notes": "Amazing movie! Highly recommend",
+  "priority": 10,
+  "watched": true,
+  "rating": 9
+}
+```
+
+Response:
+```json
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Amazing movie! Highly recommend",
+    "priority": 10,
+    "watched": true,
+    "watched_at": "2024-06-12T20:15:00Z",
+    "rating": 9,
+    "version": 2,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+##### Remove Film from Watchlist
+```http
+DELETE /v1/watchlist/{id}
+Authorization: Bearer YOUR-AUTH-TOKEN
+```
+
+Response:
+```json
+{
+  "message": "watchlist entry removed successfully"
+}
+```
+
+#### Watchlist Features
+
+- **Priority System**: Rate films from 1-10 based on how much you want to watch them
+- **Notes**: Add personal notes about why you want to watch a film
+- **Watch Status**: Mark films as watched/unwatched
+- **Rating System**: Rate films you've watched from 1-10
+- **Automatic Timestamps**: Track when films were added and watched
+- **Full Film Details**: Each watchlist entry includes complete film information
+- **Filtering & Sorting**: Filter by watched status, priority, and sort by various fields
+- **User Isolation**: Each user's watchlist is completely private and separate
+
 ### Filtering and Pagination
 
 The films listing endpoint (`GET /v1/films`) supports various query parameters for filtering and pagination:
@@ -635,5 +845,216 @@ Content-Length: 41
 
 {
     "message": "movie deleted succesfully"
+}
+```
+
+### Manage Watchlist
+
+**Request:**
+
+```bash
+curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST -d '{
+  "film_id": 1,
+  "notes": "Recommended by friend",
+  "priority": 8
+}' http://localhost:4000/v1/watchlist
+```
+
+**Response:**
+
+```
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /v1/watchlist/1
+Content-Length: 123
+
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Recommended by friend",
+    "priority": 8,
+    "watched": false,
+    "watched_at": null,
+    "rating": null,
+    "version": 1,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+### Get User's Watchlist
+
+**Request:**
+
+```bash
+curl -i -H 'Accept: application/json' http://localhost:4000/v1/watchlist
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 123
+
+{
+  "watchlist": [
+    {
+      "id": 1,
+      "user_id": 123,
+      "film_id": 1,
+      "added_at": "2024-06-11T14:30:00Z",
+      "notes": "Recommended by friend",
+      "priority": 8,
+      "watched": false,
+      "watched_at": null,
+      "rating": null,
+      "version": 1,
+      "film": {
+        "id": 1,
+        "title": "Inception",
+        "year": 2010,
+        "runtime": "148 mins",
+        "rating": 8.8,
+        "description": "A mind-bending thriller",
+        "image": "http://example.com/inception.jpg",
+        "genres": ["Sci-Fi", "Thriller"],
+        "directors": ["Christopher Nolan"],
+        "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+      }
+    }
+  ],
+  "metadata": {
+    "current_page": 1,
+    "page_size": 20,
+    "first_page": 1,
+    "last_page": 1,
+    "total_records": 1
+  }
+}
+```
+
+### Get Watchlist Entry
+
+**Request:**
+
+```bash
+curl -i -H 'Accept: application/json' http://localhost:4000/v1/watchlist/1
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 123
+
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Recommended by friend",
+    "priority": 8,
+    "watched": true,
+    "watched_at": "2024-06-12T20:15:00Z",
+    "rating": 9,
+    "version": 2,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+### Update Watchlist Entry
+
+**Request:**
+
+```bash
+curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X PATCH -d '{
+  "notes": "Amazing movie! Highly recommend",
+  "priority": 10,
+  "watched": true,
+  "rating": 9
+}' http://localhost:4000/v1/watchlist/1
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 123
+
+{
+  "watchlist_entry": {
+    "id": 1,
+    "user_id": 123,
+    "film_id": 1,
+    "added_at": "2024-06-11T14:30:00Z",
+    "notes": "Amazing movie! Highly recommend",
+    "priority": 10,
+    "watched": true,
+    "watched_at": "2024-06-12T20:15:00Z",
+    "rating": 9,
+    "version": 2,
+    "film": {
+      "id": 1,
+      "title": "Inception",
+      "year": 2010,
+      "runtime": "148 mins",
+      "rating": 8.8,
+      "description": "A mind-bending thriller",
+      "image": "http://example.com/inception.jpg",
+      "genres": ["Sci-Fi", "Thriller"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+    }
+  }
+}
+```
+
+### Remove Film from Watchlist
+
+**Request:**
+
+```bash
+curl -i -H 'Accept: application/json' -X DELETE http://localhost:4000/v1/watchlist/1
+```
+
+**Response:**
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 41
+
+{
+    "message": "watchlist entry removed successfully"
 }
 ```

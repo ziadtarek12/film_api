@@ -9,13 +9,11 @@ var ErrRecordNotFound = errors.New("record doesn't exist")
 var ErrEditConflict = errors.New("edit conflict")
 
 type Models struct {
-	Films FilmModel
-
-	Users UserModel
-
-	Tokens TokenModel
-
+	Films       FilmModel
+	Users       UserModel
+	Tokens      TokenModel
 	Permissions PermissionModel
+	Watchlist   WatchlistModel
 }
 
 func New(DB *sql.DB) Models {
@@ -24,5 +22,6 @@ func New(DB *sql.DB) Models {
 		Users:       UserModel{DB: DB},
 		Tokens:      TokenModel{DB: DB},
 		Permissions: PermissionModel{DB: DB},
+		Watchlist:   WatchlistModel{DB: DB},
 	}
 }

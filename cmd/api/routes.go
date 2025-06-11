@@ -22,6 +22,13 @@ func (app *application) routes() http.Handler {
 	router.Handle("PATCH /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.updateFilmHandler)))
 	router.Handle("DELETE /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.deleteFilmHandler)))
 
+	// Watchlist routes (require authentication)
+	router.Handle("GET /v1/watchlist", app.requireActivatedUser(http.HandlerFunc(app.getWatchlistHandler)))
+	router.Handle("POST /v1/watchlist", app.requireActivatedUser(http.HandlerFunc(app.addToWatchlistHandler)))
+	router.Handle("GET /v1/watchlist/{id}", app.requireActivatedUser(http.HandlerFunc(app.getWatchlistEntryHandler)))
+	router.Handle("PATCH /v1/watchlist/{id}", app.requireActivatedUser(http.HandlerFunc(app.updateWatchlistEntryHandler)))
+	router.Handle("DELETE /v1/watchlist/{id}", app.requireActivatedUser(http.HandlerFunc(app.removeFromWatchlistHandler)))
+
 	// Chain middleware
 	return app.chainMiddleware(router, app.recoverPanic, app.rateLimit, app.authenticate, app.enableCORS)
 }

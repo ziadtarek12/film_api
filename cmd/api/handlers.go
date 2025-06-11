@@ -379,7 +379,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
-			v.AddError("token", "invalid or expired actviation token")
+			v.AddError("token", "invalid or expired actvation token")
 			app.faliedValidationResponse(w, r, v.Errors)
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -462,6 +462,281 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 	app.models.Permissions.AddForUser(user.ID, "films:read")
 	app.models.Permissions.AddForUser(user.ID, "films:write")
 	err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// Watchlist handlers
+
+func (app *application) addToWatchlistHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		FilmID   int64  `json:"film_id"`
+		Notes    string `json:"notes"`
+		Priority int    `json:"priority"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	user := app.contextGetUser(r)
+
+	// Check if film exists
+	_, err = app.models.Films.Get(input.FilmID)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	// Create watchlist entry
+	entry := &models.Watchlist{
+		UserID:   user.ID,
+		FilmID:   input.FilmID,
+		Notes:    input.Notes,
+		Priority: input.Priority,
+		Watched:  false,
+	}
+
+	// Set default priority if not provided
+	if entry.Priority == 0 {
+		entry.Priority = 5
+	}
+
+	v := validator.New()
+	if models.ValidateWatchlistEntry(v, entry); !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Watchlist.Insert(entry)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrDuplicateWatchlistEntry):
+			v.AddError("film_id", "film is already in your watchlist")
+			app.faliedValidationResponse(w, r, v.Errors)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	// Get the full entry with film details
+	fullEntry, err := app.models.Watchlist.Get(user.ID, entry.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/watchlist/%d", entry.ID))
+
+	err = app.writeJSON(w, http.StatusCreated, map[string]any{"watchlist_entry": fullEntry}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getWatchlistHandler(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+
+	var input struct {
+		Watched  *bool
+		Priority int
+		Filters  models.Filters
+	}
+
+	v := validator.New()
+	queryString := r.URL.Query()
+
+	// Parse watched filter
+	watchedStr := app.readString(queryString, "watched", "")
+	if watchedStr != "" {
+		switch watchedStr {
+		case "true":
+			watched := true
+			input.Watched = &watched
+		case "false":
+			watched := false
+			input.Watched = &watched
+		default:
+			v.AddError("watched", "must be 'true' or 'false'")
+		}
+	}
+
+	input.Priority = app.readInt(queryString, "priority", 0, v)
+	input.Filters.Page = app.readInt(queryString, "page", 1, v)
+	input.Filters.PageSize = app.readInt(queryString, "page_size", 20, v)
+	input.Filters.SortValues = app.readCSV(queryString, "sort", []string{})
+	input.Filters.SortSafelist = []string{"id", "added_at", "priority", "watched", "-id", "-added_at", "-priority", "-watched"}
+
+	if models.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	entries, metadata, err := app.models.Watchlist.GetAll(user.ID, input.Watched, input.Priority, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"watchlist": entries, "metadata": metadata}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) getWatchlistEntryHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	user := app.contextGetUser(r)
+
+	entry, err := app.models.Watchlist.Get(user.ID, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"watchlist_entry": entry}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateWatchlistEntryHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	user := app.contextGetUser(r)
+
+	// Get the current entry
+	entry, err := app.models.Watchlist.Get(user.ID, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	var input struct {
+		Notes    *string `json:"notes"`
+		Priority *int    `json:"priority"`
+		Watched  *bool   `json:"watched"`
+		Rating   *int    `json:"rating"`
+	}
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Apply partial updates
+	if input.Notes != nil {
+		entry.Notes = *input.Notes
+	}
+	if input.Priority != nil {
+		entry.Priority = *input.Priority
+	}
+	if input.Watched != nil {
+		entry.Watched = *input.Watched
+		if *input.Watched && entry.WatchedAt == nil {
+			now := time.Now()
+			entry.WatchedAt = &now
+		} else if !*input.Watched {
+			entry.WatchedAt = nil
+			entry.Rating = nil // Clear rating if marking as unwatched
+		}
+	}
+	if input.Rating != nil {
+		entry.Rating = input.Rating
+		// If rating is provided, mark as watched
+		if !entry.Watched {
+			entry.Watched = true
+			if entry.WatchedAt == nil {
+				now := time.Now()
+				entry.WatchedAt = &now
+			}
+		}
+	}
+
+	v := validator.New()
+	if models.ValidateWatchlistEntry(v, entry); !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Watchlist.Update(entry)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	// Get the updated entry with film details
+	fullEntry, err := app.models.Watchlist.Get(user.ID, entry.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"watchlist_entry": fullEntry}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) removeFromWatchlistHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	user := app.contextGetUser(r)
+
+	err = app.models.Watchlist.Delete(user.ID, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"message": "watchlist entry removed successfully"}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
