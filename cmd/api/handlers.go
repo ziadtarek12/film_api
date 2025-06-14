@@ -11,6 +11,110 @@ import (
 	"filmapi.zeyadtarek.net/internals/validator"
 )
 
+func (app *application) welcomeHandler(w http.ResponseWriter, r *http.Request) {
+	welcomeText := `
+██╗    ██╗███████╗██╗      ██████╗ ██████╗ ███╗   ███╗███████╗
+██║    ██║██╔════╝██║     ██╔════╝██╔═══██╗████╗ ████║██╔════╝
+██║ █╗ ██║█████╗  ██║     ██║     ██║   ██║██╔████╔██║█████╗  
+██║███╗██║██╔══╝  ██║     ██║     ██║   ██║██║╚██╔╝██║██╔══╝  
+╚███╔███╔╝███████╗███████╗╚██████╗╚██████╔╝██║ ╚═╝ ██║███████╗
+ ╚══╝╚══╝ ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝
+
+                    🎬 FILM API 🎬
+                    
+Welcome to the Film API - Your Gateway to Cinema Data!
+
+═══════════════════════════════════════════════════════════════
+
+📚 API Documentation:
+
+🔍 Films Endpoints:
+   GET    /v1/films           - List all films (with advanced filtering!)
+   POST   /v1/films           - Create a new film  
+   GET    /v1/films/{id}      - Get film by ID
+   PATCH  /v1/films/{id}      - Update film
+   DELETE /v1/films/{id}      - Delete film
+
+🎯 Films Filtering & Searching:
+   • Title Search:
+     /v1/films?title=godfather
+     
+   • Genre Filtering:
+     /v1/films?genres=action,drama
+     /v1/films?genres=sci-fi
+     
+   • Director Search:
+     /v1/films?directors=nolan,scorsese
+     /v1/films?directors=kubrick
+     
+   • Actor Search:
+     /v1/films?actors=dicaprio,pacino
+     /v1/films?actors=deniro
+     
+   • Combined Filters:
+     /v1/films?title=dark&genres=action&directors=nolan
+     
+   • Pagination:
+     /v1/films?page=2&page_size=10
+     
+   • Sorting:
+     /v1/films?sort=title          (A-Z)
+     /v1/films?sort=-rating        (highest rated first)
+     /v1/films?sort=year,-rating   (newest first, then by rating)
+     
+   Available sort fields: id, title, year, runtime, rating
+   Use '-' prefix for descending order (e.g., -year, -rating)
+
+👤 User Endpoints:
+   POST   /v1/users           - Register new user
+   PUT    /v1/users/activate  - Activate user account
+   POST   /v1/tokens/authentication - Login
+
+📋 Watchlist Endpoints:
+   GET    /v1/watchlist       - Get user's watchlist
+   POST   /v1/watchlist       - Add film to watchlist
+   GET    /v1/watchlist/{id}  - Get watchlist entry
+   PATCH  /v1/watchlist/{id}  - Update watchlist entry
+   DELETE /v1/watchlist/{id}  - Remove from watchlist
+
+🎯 Watchlist Filtering:
+   • By status:
+     /v1/watchlist?watched=true    (watched films)
+     /v1/watchlist?watched=false   (unwatched films)
+     
+   • By priority:
+     /v1/watchlist?priority=5      (high priority films)
+     
+   • Sorting:
+     /v1/watchlist?sort=priority   (by priority)
+     /v1/watchlist?sort=-added_at  (newest additions first)
+
+💡 System:
+   GET    /v1/healthcheck     - API health status
+
+═══════════════════════════════════════════════════════════════
+
+🔐 Authentication: Most endpoints require authentication tokens
+📄 Format: All responses are in JSON format
+🌍 Version: v1
+📊 Status: Online and Ready
+
+💡 Pro Tips:
+   • Combine multiple filters for precise searches
+   • Use pagination for large result sets
+   • Sort results to find what you need faster
+   • Try partial title matches for flexible searching
+
+Happy Coding! 🚀
+
+═══════════════════════════════════════════════════════════════
+`
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(welcomeText))
+}
+
 func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	env := map[string]any{
 		"status": "available",

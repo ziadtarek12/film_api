@@ -7,6 +7,9 @@ import (
 func (app *application) routes() http.Handler {
 	router := http.NewServeMux()
 
+	// Welcome page
+	router.Handle("GET /", http.HandlerFunc(app.welcomeHandler))
+
 	// Healthcheck
 	router.Handle("GET /v1/healthcheck", http.HandlerFunc(app.healthCheckHandler))
 
