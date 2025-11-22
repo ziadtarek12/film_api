@@ -96,6 +96,6 @@ func (logger *Logger) print(level Level, message string, properties map[string]s
 
 }
 
-func (logger *Logger) Write(message []byte) (n int, err error) {
-	return logger.print(LevelError, string(message), nil)
-}
+// func (logger *Logger) Write(message []byte) (n int, err error) {
+// 	return logger.print(LevelError, string(message), nil)
+// }
