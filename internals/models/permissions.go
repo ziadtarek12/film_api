@@ -2,9 +2,9 @@ package models
 
 import (
 	"context"
-	"database/sql"
-	"github.com/lib/pq"
 	"time"
+
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 type Permissions []string
@@ -20,55 +20,71 @@ func (permissions Permissions) Include(code string) bool {
 }
 
 type PermissionModel struct {
-	DB *sql.DB
+	Driver neo4j.DriverWithContext
 }
 
 func (model PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
-	query := `
-		SELECT permissions.code
-		FROM permissions
-		INNER JOIN users_permissions ON users_permissions.permission_id = permissions.id
-		INNER JOIN users ON users_permissions.user_id = users.id
-		WHERE users.id = $1
-	`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := model.DB.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
 
-	var permissions Permissions
-	for rows.Next() {
-		var permission string
-		err := rows.Scan(&permission)
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)-[:HAS_PERMISSION]->(p:Permission)
+			WHERE id(u) = $user_id
+			RETURN collect(p.code)
+		`
+		result, err := tx.Run(ctx, query, map[string]any{"user_id": userID})
 		if err != nil {
 			return nil, err
 		}
 
-		permissions = append(permissions, permission)
+		if result.Next(ctx) {
+			return result.Record().Values[0], nil
+		}
+
+		return []any{}, nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, err
+	permissionsRaw := result.([]any)
+	permissions := make(Permissions, len(permissionsRaw))
+	for i, p := range permissionsRaw {
+		permissions[i] = p.(string)
 	}
 
 	return permissions, nil
 }
 
 func (model PermissionModel) AddForUser(userID int64, codes ...string) error {
-	query := `
-		INSERT INTO users_permissions
-		(user_id, permission_id)
-		SELECT $1, permissions.id FROM permissions WHERE permissions.code = ANY($2)
-	`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	_, err := model.DB.ExecContext(ctx, query, userID, pq.Array(codes))
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
+
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)
+			WHERE id(u) = $user_id
+			UNWIND $codes as code
+			MERGE (p:Permission {code: code})
+			MERGE (u)-[:HAS_PERMISSION]->(p)
+		`
+
+		params := map[string]any{
+			"user_id": userID,
+			"codes":   codes,
+		}
+
+		_, err := tx.Run(ctx, query, params)
+		return nil, err
+	})
+
 	return err
 }

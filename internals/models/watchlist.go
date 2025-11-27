@@ -2,13 +2,12 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	"filmapi.zeyadtarek.net/internals/validator"
-	"github.com/lib/pq"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 type Watchlist struct {
@@ -26,11 +25,11 @@ type Watchlist struct {
 }
 
 type WatchlistModel struct {
-	DB *sql.DB
+	Driver neo4j.DriverWithContext
 }
 
 func ValidateWatchlistEntry(v *validator.Validator, entry *Watchlist) {
-	v.Check(entry.FilmID > 0, "film_id", "must be provided and greater than 0")
+	v.Check(entry.FilmID >= 0, "film_id", "must be provided")
 	v.Check(entry.Priority >= 1 && entry.Priority <= 10, "priority", "must be between 1 and 10")
 	v.Check(len(entry.Notes) <= 1000, "notes", "must not be more than 1000 characters long")
 
@@ -40,304 +39,487 @@ func ValidateWatchlistEntry(v *validator.Validator, entry *Watchlist) {
 
 	if entry.Watched && entry.WatchedAt == nil {
 		entry.WatchedAt = &time.Time{}
-		*entry.WatchedAt = time.Now()
+		*entry.WatchedAt = time.Now().UTC()
 	}
 }
 
+var ErrDuplicateWatchlistEntry = errors.New("film already exists in watchlist")
+
 func (m WatchlistModel) Insert(entry *Watchlist) error {
-	query := `
-		INSERT INTO watchlist (user_id, film_id, notes, priority, watched, watched_at, rating)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, added_at, version
-	`
-
-	args := []any{
-		entry.UserID,
-		entry.FilmID,
-		entry.Notes,
-		entry.Priority,
-		entry.Watched,
-		entry.WatchedAt,
-		entry.Rating,
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&entry.ID, &entry.AddedAt, &entry.Version)
-	if err != nil {
-		switch {
-		case err.Error() == `pq: duplicate key value violates unique constraint "watchlist_user_film_unique"`:
-			return ErrDuplicateWatchlistEntry
-		default:
-			return err
-		}
-	}
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	return nil
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		// Check for duplicate
+		checkQuery := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)-[:FOR_FILM]->(f:Film)
+			WHERE id(u) = $user_id AND id(f) = $film_id
+			RETURN count(w)
+		`
+		result, err := tx.Run(ctx, checkQuery, map[string]any{
+			"user_id": entry.UserID,
+			"film_id": entry.FilmID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			count := result.Record().Values[0].(int64)
+			if count > 0 {
+				return nil, ErrDuplicateWatchlistEntry
+			}
+		}
+
+		query := `
+			MATCH (u:User), (f:Film)
+			WHERE id(u) = $user_id AND id(f) = $film_id
+			CREATE (w:Watchlist {
+				notes: $notes,
+				priority: $priority,
+				watched: $watched,
+				watched_at: datetime($watched_at),
+				rating: $rating,
+				added_at: datetime(),
+				version: 1
+			})
+			MERGE (u)-[:HAS_WATCHLIST]->(w)
+			MERGE (w)-[:FOR_FILM]->(f)
+			RETURN id(w), w.added_at, w.version
+		`
+
+		var watchedAt any
+		if entry.WatchedAt != nil {
+			watchedAt = *entry.WatchedAt
+		}
+
+		params := map[string]any{
+			"user_id":    entry.UserID,
+			"film_id":    entry.FilmID,
+			"notes":      entry.Notes,
+			"priority":   entry.Priority,
+			"watched":    entry.Watched,
+			"watched_at": watchedAt,
+			"rating":     entry.Rating,
+		}
+
+		result, err = tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			record := result.Record()
+			entry.ID = record.Values[0].(int64)
+			entry.AddedAt = record.Values[1].(time.Time)
+			entry.Version = int(record.Values[2].(int64))
+			return nil, nil
+		}
+
+		return nil, errors.New("failed to insert watchlist entry")
+	})
+
+	return err
 }
 
 func (m WatchlistModel) Get(userID, entryID int64) (*Watchlist, error) {
-	if entryID < 1 {
+	if entryID < 0 {
 		return nil, ErrRecordNotFound
 	}
 
-	query := `
-		SELECT w.id, w.user_id, w.film_id, w.added_at, w.notes, w.priority, 
-			   w.watched, w.watched_at, w.rating, w.version,
-			   f.title, f.year, f.runtime, f.rating as film_rating, f.description, f.image, f.version as film_version,
-			   (SELECT array_agg(g.name) FROM film_genres fg JOIN genres g ON fg.genre_id = g.id WHERE fg.film_id = f.id) AS genres,
-			   (SELECT array_agg(a.name) FROM film_actors fa JOIN actors a ON fa.actor_id = a.id WHERE fa.film_id = f.id) AS actors,
-			   (SELECT array_agg(d.name) FROM film_directors fd JOIN directors d ON fd.director_id = d.id WHERE fd.film_id = f.id) AS directors
-		FROM watchlist w
-		INNER JOIN films f ON w.film_id = f.id
-		WHERE w.id = $1 AND w.user_id = $2
-	`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var entry Watchlist
-	var film Film
-	var genres, actors, directors []string
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
 
-	err := m.DB.QueryRowContext(ctx, query, entryID, userID).Scan(
-		&entry.ID,
-		&entry.UserID,
-		&entry.FilmID,
-		&entry.AddedAt,
-		&entry.Notes,
-		&entry.Priority,
-		&entry.Watched,
-		&entry.WatchedAt,
-		&entry.Rating,
-		&entry.Version,
-		&film.Title,
-		&film.Year,
-		&film.Runtime,
-		&film.Rating,
-		&film.Description,
-		&film.Img,
-		&film.Version,
-		pq.Array(&genres),
-		pq.Array(&actors),
-		pq.Array(&directors),
-	)
-
-	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrRecordNotFound
-		default:
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)-[:FOR_FILM]->(f:Film)
+			WHERE id(w) = $entry_id AND id(u) = $user_id
+			OPTIONAL MATCH (f)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (f)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (f)-[:HAS_DIRECTOR]->(d:Director)
+			RETURN w, f, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors
+		`
+		result, err := tx.Run(ctx, query, map[string]any{
+			"entry_id": entryID,
+			"user_id":  userID,
+		})
+		if err != nil {
 			return nil, err
 		}
+
+		if result.Next(ctx) {
+			return result.Record(), nil
+		}
+
+		return nil, ErrRecordNotFound
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	// Set film data
-	film.ID = entry.FilmID
-	film.Genres = make([]Genre, len(genres))
-	for i, genre := range genres {
-		film.Genres[i] = Genre{Name: genre}
-	}
-	film.Actors = make([]Actor, len(actors))
-	for i, actor := range actors {
-		film.Actors[i] = Actor{Name: actor}
-	}
-	film.Directors = make([]Director, len(directors))
-	for i, director := range directors {
-		film.Directors[i] = Director{Name: director}
-	}
-	entry.Film = &film
+	record := result.(*neo4j.Record)
+	wNode := record.Values[0].(neo4j.Node)
+	fNode := record.Values[1].(neo4j.Node)
 
-	return &entry, nil
+	entry := &Watchlist{
+		ID:       wNode.Id,
+		UserID:   userID,
+		FilmID:   fNode.Id,
+		AddedAt:  wNode.Props["added_at"].(time.Time),
+		Notes:    getStringProp(wNode, "notes"),
+		Priority: int(getIntProp(wNode, "priority")),
+		Watched:  wNode.Props["watched"].(bool),
+		Version:  int(getIntProp(wNode, "version")),
+	}
+
+	if val, ok := wNode.Props["watched_at"]; ok && val != nil {
+		t := val.(time.Time)
+		entry.WatchedAt = &t
+	}
+
+	if val, ok := wNode.Props["rating"]; ok && val != nil {
+		r := int(val.(int64))
+		entry.Rating = &r
+	}
+
+	film := &Film{
+		ID:                  fNode.Id,
+		IMDbID:              getStringProp(fNode, "imdb_id"),
+		Title:               getStringProp(fNode, "title"),
+		OriginalTitle:       getStringProp(fNode, "original_title"),
+		Year:                int32(getIntProp(fNode, "year")),
+		ReleaseDate:         getStringProp(fNode, "release_date"),
+		Runtime:             Runtime(getIntProp(fNode, "runtime")),
+		RuntimeSeconds:      int32(getIntProp(fNode, "runtime_seconds")),
+		Rating:              float32(getFloatProp(fNode, "rating")),
+		VoteCount:           float32(getFloatProp(fNode, "vote_count")),
+		Description:         getStringProp(fNode, "description"),
+		PlotSummary:         getStringProp(fNode, "plot_summary"),
+		Certificate:         getStringProp(fNode, "certificate"),
+		ProductionStatus:    getStringProp(fNode, "production_status"),
+		MetacriticScore:     int32(getIntProp(fNode, "metacritic_score")),
+		TrailerID:           getStringProp(fNode, "trailer_id"),
+		WatchCategories:     getStringProp(fNode, "watch_categories"),
+		WatchProviders:      getStringProp(fNode, "watch_providers"),
+		PrimaryImageURL:     getStringProp(fNode, "primary_image_url"),
+		PrimaryImageCaption: getStringProp(fNode, "primary_image_caption"),
+		Img:                 getStringProp(fNode, "image"),
+		Version:             int32(getIntProp(fNode, "version")),
+	}
+
+	genresRaw := record.Values[2]
+	for _, g := range genresRaw.([]any) {
+		film.Genres = append(film.Genres, Genre{Name: g.(string)})
+	}
+
+	actorsRaw := record.Values[3]
+	for _, a := range actorsRaw.([]any) {
+		film.Actors = append(film.Actors, Actor{Name: a.(string)})
+	}
+
+	directorsRaw := record.Values[4]
+	for _, d := range directorsRaw.([]any) {
+		film.Directors = append(film.Directors, Director{Name: d.(string)})
+	}
+
+	entry.Film = film
+	return entry, nil
 }
 
 func (m WatchlistModel) GetAll(userID int64, watched *bool, priority int, filters Filters) ([]*Watchlist, Metadata, error) {
-	whereClause := "w.user_id = $1"
-	args := []any{userID}
-	argCount := 1
-
-	if watched != nil {
-		argCount++
-		whereClause += fmt.Sprintf(" AND w.watched = $%d", argCount)
-		args = append(args, *watched)
-	}
-
-	if priority > 0 {
-		argCount++
-		whereClause += fmt.Sprintf(" AND w.priority = $%d", argCount)
-		args = append(args, priority)
-	}
-
-	query := fmt.Sprintf(`
-		SELECT COUNT(*) OVER(),
-			   w.id, w.user_id, w.film_id, w.added_at, w.notes, w.priority, 
-			   w.watched, w.watched_at, w.rating, w.version,
-			   f.title, f.year, f.runtime, f.rating as film_rating, f.description, f.image, f.version as film_version,
-			   (SELECT array_agg(g.name) FROM film_genres fg JOIN genres g ON fg.genre_id = g.id WHERE fg.film_id = f.id) AS genres,
-			   (SELECT array_agg(a.name) FROM film_actors fa JOIN actors a ON fa.actor_id = a.id WHERE fa.film_id = f.id) AS actors,
-			   (SELECT array_agg(d.name) FROM film_directors fd JOIN directors d ON fd.director_id = d.id WHERE fd.film_id = f.id) AS directors
-		FROM watchlist w
-		INNER JOIN films f ON w.film_id = f.id
-		WHERE %s
-		ORDER BY %s w.added_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, filters.sortColumn(), argCount+1, argCount+2)
-
-	args = append(args, filters.limit(), filters.offset())
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, args...)
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		whereClause := "WHERE id(u) = $user_id"
+		if watched != nil {
+			whereClause += " AND w.watched = $watched"
+		}
+		if priority > 0 {
+			whereClause += " AND w.priority = $priority"
+		}
+
+		countQuery := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)
+			` + whereClause + `
+			RETURN count(w)
+		`
+
+		params := map[string]any{
+			"user_id":  userID,
+			"watched":  watched,
+			"priority": priority,
+			"limit":    filters.limit(),
+			"offset":   filters.offset(),
+		}
+
+		countResult, err := tx.Run(ctx, countQuery, params)
+		if err != nil {
+			return nil, err
+		}
+
+		totalRecords := 0
+		if countResult.Next(ctx) {
+			totalRecords = int(countResult.Record().Values[0].(int64))
+		}
+
+		// Prepare sort string
+		sortStr := filters.sortColumn()
+		if sortStr == "" {
+			sortStr = "added_at DESC"
+		}
+		sortStr = strings.TrimSuffix(sortStr, ",")
+		sortStr = strings.ReplaceAll(sortStr, ",", ", w.")
+		sortStr = "w." + sortStr
+
+		dataQuery := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)-[:FOR_FILM]->(f:Film)
+			` + whereClause + `
+			OPTIONAL MATCH (f)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (f)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (f)-[:HAS_DIRECTOR]->(d:Director)
+			RETURN w, f, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors
+			ORDER BY ` + sortStr + `
+			SKIP $offset
+			LIMIT $limit
+		`
+
+		dataResult, err := tx.Run(ctx, dataQuery, params)
+		if err != nil {
+			return nil, err
+		}
+
+		watchlist := []*Watchlist{}
+		for dataResult.Next(ctx) {
+			record := dataResult.Record()
+			wNode := record.Values[0].(neo4j.Node)
+			fNode := record.Values[1].(neo4j.Node)
+
+			entry := &Watchlist{
+				ID:       wNode.Id,
+				UserID:   userID,
+				FilmID:   fNode.Id,
+				AddedAt:  wNode.Props["added_at"].(time.Time),
+				Notes:    getStringProp(wNode, "notes"),
+				Priority: int(getIntProp(wNode, "priority")),
+				Watched:  wNode.Props["watched"].(bool),
+				Version:  int(getIntProp(wNode, "version")),
+			}
+
+			if val, ok := wNode.Props["watched_at"]; ok && val != nil {
+				t := val.(time.Time)
+				entry.WatchedAt = &t
+			}
+
+			if val, ok := wNode.Props["rating"]; ok && val != nil {
+				r := int(val.(int64))
+				entry.Rating = &r
+			}
+
+			film := &Film{
+				ID:                  fNode.Id,
+				IMDbID:              getStringProp(fNode, "imdb_id"),
+				Title:               getStringProp(fNode, "title"),
+				OriginalTitle:       getStringProp(fNode, "original_title"),
+				Year:                int32(getIntProp(fNode, "year")),
+				ReleaseDate:         getStringProp(fNode, "release_date"),
+				Runtime:             Runtime(getIntProp(fNode, "runtime")),
+				RuntimeSeconds:      int32(getIntProp(fNode, "runtime_seconds")),
+				Rating:              float32(getFloatProp(fNode, "rating")),
+				VoteCount:           float32(getFloatProp(fNode, "vote_count")),
+				Description:         getStringProp(fNode, "description"),
+				PlotSummary:         getStringProp(fNode, "plot_summary"),
+				Certificate:         getStringProp(fNode, "certificate"),
+				ProductionStatus:    getStringProp(fNode, "production_status"),
+				MetacriticScore:     int32(getIntProp(fNode, "metacritic_score")),
+				TrailerID:           getStringProp(fNode, "trailer_id"),
+				WatchCategories:     getStringProp(fNode, "watch_categories"),
+				WatchProviders:      getStringProp(fNode, "watch_providers"),
+				PrimaryImageURL:     getStringProp(fNode, "primary_image_url"),
+				PrimaryImageCaption: getStringProp(fNode, "primary_image_caption"),
+				Img:                 getStringProp(fNode, "image"),
+				Version:             int32(getIntProp(fNode, "version")),
+			}
+
+			genresRaw := record.Values[2]
+			for _, g := range genresRaw.([]any) {
+				film.Genres = append(film.Genres, Genre{Name: g.(string)})
+			}
+
+			actorsRaw := record.Values[3]
+			for _, a := range actorsRaw.([]any) {
+				film.Actors = append(film.Actors, Actor{Name: a.(string)})
+			}
+
+			directorsRaw := record.Values[4]
+			for _, d := range directorsRaw.([]any) {
+				film.Directors = append(film.Directors, Director{Name: d.(string)})
+			}
+
+			entry.Film = film
+			watchlist = append(watchlist, entry)
+		}
+
+		metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+		return struct {
+			Watchlist []*Watchlist
+			Metadata  Metadata
+		}{watchlist, metadata}, nil
+	})
+
 	if err != nil {
 		return nil, Metadata{}, err
 	}
-	defer rows.Close()
 
-	watchlist := []*Watchlist{}
-	totalRecords := 0
+	res := result.(struct {
+		Watchlist []*Watchlist
+		Metadata  Metadata
+	})
 
-	for rows.Next() {
-		var entry Watchlist
-		var film Film
-		var genres, actors, directors []string
-
-		err := rows.Scan(
-			&totalRecords,
-			&entry.ID,
-			&entry.UserID,
-			&entry.FilmID,
-			&entry.AddedAt,
-			&entry.Notes,
-			&entry.Priority,
-			&entry.Watched,
-			&entry.WatchedAt,
-			&entry.Rating,
-			&entry.Version,
-			&film.Title,
-			&film.Year,
-			&film.Runtime,
-			&film.Rating,
-			&film.Description,
-			&film.Img,
-			&film.Version,
-			pq.Array(&genres),
-			pq.Array(&actors),
-			pq.Array(&directors),
-		)
-
-		if err != nil {
-			return nil, Metadata{}, err
-		}
-
-		// Set film data
-		film.ID = entry.FilmID
-		film.Genres = make([]Genre, len(genres))
-		for i, genre := range genres {
-			film.Genres[i] = Genre{Name: genre}
-		}
-		film.Actors = make([]Actor, len(actors))
-		for i, actor := range actors {
-			film.Actors[i] = Actor{Name: actor}
-		}
-		film.Directors = make([]Director, len(directors))
-		for i, director := range directors {
-			film.Directors[i] = Director{Name: director}
-		}
-		entry.Film = &film
-
-		watchlist = append(watchlist, &entry)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, Metadata{}, err
-	}
-
-	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
-	return watchlist, metadata, nil
+	return res.Watchlist, res.Metadata, nil
 }
 
 func (m WatchlistModel) Update(entry *Watchlist) error {
-	query := `
-		UPDATE watchlist
-		SET notes = $1, priority = $2, watched = $3, watched_at = $4, rating = $5, version = version + 1
-		WHERE id = $6 AND user_id = $7 AND version = $8
-		RETURNING version
-	`
-
-	args := []any{
-		entry.Notes,
-		entry.Priority,
-		entry.Watched,
-		entry.WatchedAt,
-		entry.Rating,
-		entry.ID,
-		entry.UserID,
-		entry.Version,
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&entry.Version)
-	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
-		default:
-			return err
-		}
-	}
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	return nil
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (w:Watchlist)
+			WHERE id(w) = $id AND w.version = $version
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w)
+			WHERE id(u) = $user_id
+			SET w.notes = $notes,
+				w.priority = $priority,
+				w.watched = $watched,
+				w.watched_at = datetime($watched_at),
+				w.rating = $rating,
+				w.version = w.version + 1
+			RETURN w.version
+		`
+
+		var watchedAt any
+		if entry.WatchedAt != nil {
+			watchedAt = *entry.WatchedAt
+		}
+
+		params := map[string]any{
+			"id":         entry.ID,
+			"user_id":    entry.UserID,
+			"version":    entry.Version,
+			"notes":      entry.Notes,
+			"priority":   entry.Priority,
+			"watched":    entry.Watched,
+			"watched_at": watchedAt,
+			"rating":     entry.Rating,
+		}
+
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			entry.Version = int(result.Record().Values[0].(int64))
+			return nil, nil
+		}
+
+		return nil, ErrEditConflict
+	})
+
+	return err
 }
 
 func (m WatchlistModel) Delete(userID, entryID int64) error {
-	if entryID < 1 {
+	if entryID < 0 {
 		return ErrRecordNotFound
 	}
-
-	query := `
-		DELETE FROM watchlist
-		WHERE id = $1 AND user_id = $2
-	`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	result, err := m.DB.ExecContext(ctx, query, entryID, userID)
-	if err != nil {
-		return err
-	}
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)
+			WHERE id(w) = $entry_id AND id(u) = $user_id
+			DETACH DELETE w
+			RETURN count(w)
+		`
 
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
+		params := map[string]any{
+			"entry_id": entryID,
+			"user_id":  userID,
+		}
 
-	return nil
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			count := result.Record().Values[0].(int64)
+			if count == 0 {
+				return nil, ErrRecordNotFound
+			}
+			return nil, nil
+		}
+
+		return nil, ErrRecordNotFound
+	})
+
+	return err
 }
 
 func (m WatchlistModel) CheckExists(userID, filmID int64) (bool, error) {
-	query := `
-		SELECT EXISTS(SELECT 1 FROM watchlist WHERE user_id = $1 AND film_id = $2)
-	`
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var exists bool
-	err := m.DB.QueryRowContext(ctx, query, userID, filmID).Scan(&exists)
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)-[:FOR_FILM]->(f:Film)
+			WHERE id(u) = $user_id AND id(f) = $film_id
+			RETURN count(w) > 0
+		`
+
+		params := map[string]any{
+			"user_id": userID,
+			"film_id": filmID,
+		}
+
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return false, err
+		}
+
+		if result.Next(ctx) {
+			return result.Record().Values[0].(bool), nil
+		}
+
+		return false, nil
+	})
+
 	if err != nil {
 		return false, err
 	}
 
-	return exists, nil
+	return result.(bool), nil
 }
-
-var ErrDuplicateWatchlistEntry = errors.New("film already exists in watchlist")

@@ -2,52 +2,14 @@ package models
 
 import (
 	"context"
-	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"filmapi.zeyadtarek.net/internals/validator"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
-
-// StringArray represents a slice of strings that can be stored as JSON in SQLite
-type StringArray []string
-
-// Scan implements the Scanner interface for database/sql
-func (sa *StringArray) Scan(value interface{}) error {
-	if value == nil {
-		*sa = StringArray{}
-		return nil
-	}
-
-	switch v := value.(type) {
-	case string:
-		if v == "" {
-			*sa = StringArray{}
-			return nil
-		}
-		return json.Unmarshal([]byte(v), sa)
-	case []byte:
-		if len(v) == 0 {
-			*sa = StringArray{}
-			return nil
-		}
-		return json.Unmarshal(v, sa)
-	}
-
-	return fmt.Errorf("cannot scan %T into StringArray", value)
-}
-
-// Value implements the Valuer interface for database/sql
-func (sa StringArray) Value() (driver.Value, error) {
-	if len(sa) == 0 {
-		return "[]", nil
-	}
-	return json.Marshal(sa)
-}
 
 type Film struct {
 	ID                  int64      `json:"id"`
@@ -78,18 +40,12 @@ type Film struct {
 }
 
 type FilmModel struct {
-	DB        *sql.DB
-	Genres    GenreModel
-	Actors    ActorModel
-	Directors DirectorModel
+	Driver neo4j.DriverWithContext
 }
 
-func NewFilmModel(db *sql.DB) FilmModel {
+func NewFilmModel(driver neo4j.DriverWithContext) FilmModel {
 	return FilmModel{
-		DB:        db,
-		Genres:    GenreModel{DB: db},
-		Actors:    ActorModel{DB: db},
-		Directors: DirectorModel{DB: db},
+		Driver: driver,
 	}
 }
 
@@ -134,468 +90,800 @@ func (f Film) MarshalJSON() ([]byte, error) {
 }
 
 func (model FilmModel) Get(id int64) (*Film, error) {
-	if id < 1 {
+	if id < 0 {
 		return nil, ErrRecordNotFound
 	}
-
-	query := `
-		SELECT 
-		f.id, f.imdb_id, f.title, f.original_title, f.year, f.release_date, f.runtime, 
-		f.runtime_seconds, f.rating, f.vote_count, f.description, f.plot_summary, 
-		f.certificate, f.production_status, f.metacritic_score, f.trailer_id, 
-		f.watch_categories, f.watch_providers, f.primary_image_url, f.primary_image_caption, 
-		f.image, f.version,
-		(SELECT json_group_array(g.name) FROM film_genres fg JOIN genres g ON fg.genre_id = g.id WHERE fg.film_id = f.id) AS genres,
-		(SELECT json_group_array(a.name) FROM film_actors fa JOIN actors a ON fa.actor_id = a.id WHERE fa.film_id = f.id) AS actors,
-		(SELECT json_group_array(d.name) FROM film_directors fd JOIN directors d ON fd.director_id = d.id WHERE fd.film_id = f.id) AS directors
-		FROM films f
-		WHERE f.id = ?
-	`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var film Film
-	var genres StringArray
-	var actors StringArray
-	var directors StringArray
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
 
-	err := model.DB.QueryRowContext(ctx, query, id).Scan(
-		&film.ID,
-		&film.IMDbID,
-		&film.Title,
-		&film.OriginalTitle,
-		&film.Year,
-		&film.ReleaseDate,
-		&film.Runtime,
-		&film.RuntimeSeconds,
-		&film.Rating,
-		&film.VoteCount,
-		&film.Description,
-		&film.PlotSummary,
-		&film.Certificate,
-		&film.ProductionStatus,
-		&film.MetacriticScore,
-		&film.TrailerID,
-		&film.WatchCategories,
-		&film.WatchProviders,
-		&film.PrimaryImageURL,
-		&film.PrimaryImageCaption,
-		&film.Img,
-		&film.Version,
-		&genres,
-		&actors,
-		&directors,
-	)
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (f:Film)
+			WHERE id(f) = $id
+			OPTIONAL MATCH (f)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (f)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (f)-[:HAS_DIRECTOR]->(d:Director)
+			RETURN f, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors
+		`
+		result, err := tx.Run(ctx, query, map[string]any{"id": id})
+		if err != nil {
+			return nil, err
+		}
+
+		record, err := result.Single(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return record, nil
+	})
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if err.Error() == "Result contains no more records" {
 			return nil, ErrRecordNotFound
 		}
 		return nil, err
 	}
 
-	// Convert string arrays to respective types
-	film.Genres = make([]Genre, len(genres))
-	for i, genre := range genres {
-		film.Genres[i] = Genre{Name: genre}
+	record := result.(*neo4j.Record)
+	node, _ := record.Get("f")
+	filmNode := node.(neo4j.Node)
+
+	film := &Film{
+		ID:                  filmNode.Id,
+		IMDbID:              getStringProp(filmNode, "imdb_id"),
+		Title:               getStringProp(filmNode, "title"),
+		OriginalTitle:       getStringProp(filmNode, "original_title"),
+		Year:                int32(getIntProp(filmNode, "year")),
+		ReleaseDate:         getStringProp(filmNode, "release_date"),
+		Runtime:             Runtime(getIntProp(filmNode, "runtime")),
+		RuntimeSeconds:      int32(getIntProp(filmNode, "runtime_seconds")),
+		Rating:              float32(getFloatProp(filmNode, "rating")),
+		VoteCount:           float32(getFloatProp(filmNode, "vote_count")),
+		Description:         getStringProp(filmNode, "description"),
+		PlotSummary:         getStringProp(filmNode, "plot_summary"),
+		Certificate:         getStringProp(filmNode, "certificate"),
+		ProductionStatus:    getStringProp(filmNode, "production_status"),
+		MetacriticScore:     int32(getIntProp(filmNode, "metacritic_score")),
+		TrailerID:           getStringProp(filmNode, "trailer_id"),
+		WatchCategories:     getStringProp(filmNode, "watch_categories"),
+		WatchProviders:      getStringProp(filmNode, "watch_providers"),
+		PrimaryImageURL:     getStringProp(filmNode, "primary_image_url"),
+		PrimaryImageCaption: getStringProp(filmNode, "primary_image_caption"),
+		Img:                 getStringProp(filmNode, "image"),
+		Version:             int32(getIntProp(filmNode, "version")),
 	}
 
-	film.Actors = make([]Actor, len(actors))
-	for i, actor := range actors {
-		film.Actors[i] = Actor{Name: actor}
+	genresRaw, _ := record.Get("genres")
+	for _, g := range genresRaw.([]any) {
+		film.Genres = append(film.Genres, Genre{Name: g.(string)})
 	}
 
-	film.Directors = make([]Director, len(directors))
-	for i, director := range directors {
-		film.Directors[i] = Director{Name: director}
+	actorsRaw, _ := record.Get("actors")
+	for _, a := range actorsRaw.([]any) {
+		film.Actors = append(film.Actors, Actor{Name: a.(string)})
 	}
 
-	return &film, nil
+	directorsRaw, _ := record.Get("directors")
+	for _, d := range directorsRaw.([]any) {
+		film.Directors = append(film.Directors, Director{Name: d.(string)})
+	}
+
+	return film, nil
 }
 
 func (model FilmModel) Insert(film *Film) error {
-	tx, err := model.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// Insert film
-	query := `INSERT INTO films (imdb_id, title, original_title, year, release_date, runtime, 
-		runtime_seconds, rating, vote_count, description, plot_summary, certificate, 
-		production_status, metacritic_score, trailer_id, watch_categories, watch_providers, 
-		primary_image_url, primary_image_caption, image, version) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	result, err := tx.ExecContext(ctx, query,
-		film.IMDbID, film.Title, film.OriginalTitle, film.Year, film.ReleaseDate,
-		film.Runtime, film.RuntimeSeconds, film.Rating, film.VoteCount, film.Description,
-		film.PlotSummary, film.Certificate, film.ProductionStatus, film.MetacriticScore,
-		film.TrailerID, film.WatchCategories, film.WatchProviders, film.PrimaryImageURL,
-		film.PrimaryImageCaption, film.Img, 1)
-	if err != nil {
-		return err
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			CREATE (f:Film {
+				imdb_id: $imdb_id,
+				title: $title,
+				original_title: $original_title,
+				year: $year,
+				release_date: $release_date,
+				runtime: $runtime,
+				runtime_seconds: $runtime_seconds,
+				rating: $rating,
+				vote_count: $vote_count,
+				description: $description,
+				plot_summary: $plot_summary,
+				certificate: $certificate,
+				production_status: $production_status,
+				metacritic_score: $metacritic_score,
+				trailer_id: $trailer_id,
+				watch_categories: $watch_categories,
+				watch_providers: $watch_providers,
+				primary_image_url: $primary_image_url,
+				primary_image_caption: $primary_image_caption,
+				image: $image,
+				version: 1
+			})
+			WITH f
+			FOREACH (genre_name IN $genres |
+				MERGE (g:Genre {name: genre_name})
+				MERGE (f)-[:HAS_GENRE]->(g)
+			)
+			WITH f
+			FOREACH (actor_name IN $actors |
+				MERGE (a:Actor {name: actor_name})
+				MERGE (f)-[:HAS_ACTOR]->(a)
+			)
+			WITH f
+			FOREACH (director_name IN $directors |
+				MERGE (d:Director {name: director_name})
+				MERGE (f)-[:HAS_DIRECTOR]->(d)
+			)
+			RETURN id(f)
+		`
+
+		genres := make([]string, len(film.Genres))
+		for i, g := range film.Genres {
+			genres[i] = g.Name
+		}
+
+		actors := make([]string, len(film.Actors))
+		for i, a := range film.Actors {
+			actors[i] = a.Name
+		}
+
+		directors := make([]string, len(film.Directors))
+		for i, d := range film.Directors {
+			directors[i] = d.Name
+		}
+
+		params := map[string]any{
+			"imdb_id":               film.IMDbID,
+			"title":                 film.Title,
+			"original_title":        film.OriginalTitle,
+			"year":                  film.Year,
+			"release_date":          film.ReleaseDate,
+			"runtime":               int(film.Runtime),
+			"runtime_seconds":       film.RuntimeSeconds,
+			"rating":                film.Rating,
+			"vote_count":            film.VoteCount,
+			"description":           film.Description,
+			"plot_summary":          film.PlotSummary,
+			"certificate":           film.Certificate,
+			"production_status":     film.ProductionStatus,
+			"metacritic_score":      film.MetacriticScore,
+			"trailer_id":            film.TrailerID,
+			"watch_categories":      film.WatchCategories,
+			"watch_providers":       film.WatchProviders,
+			"primary_image_url":     film.PrimaryImageURL,
+			"primary_image_caption": film.PrimaryImageCaption,
+			"image":                 film.Img,
+			"genres":                genres,
+			"actors":                actors,
+			"directors":             directors,
+		}
+
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		record, err := result.Single(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		film.ID = record.Values[0].(int64)
+		return nil, nil
+	})
+
+	return err
+}
+
+func (model FilmModel) InsertBulk(films []*Film) error {
+	batchSize := 1000
+
+	for i := 0; i < len(films); i += batchSize {
+		end := i + batchSize
+		if end > len(films) {
+			end = len(films)
+		}
+
+		batchFilms := films[i:end]
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+
+		_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+			query := `
+				UNWIND $batch AS row
+				CREATE (f:Film {
+					imdb_id: row.imdb_id,
+					title: row.title,
+					original_title: row.original_title,
+					year: row.year,
+					release_date: row.release_date,
+					runtime: row.runtime,
+					runtime_seconds: row.runtime_seconds,
+					rating: row.rating,
+					vote_count: row.vote_count,
+					description: row.description,
+					plot_summary: row.plot_summary,
+					certificate: row.certificate,
+					production_status: row.production_status,
+					metacritic_score: row.metacritic_score,
+					trailer_id: row.trailer_id,
+					watch_categories: row.watch_categories,
+					watch_providers: row.watch_providers,
+					primary_image_url: row.primary_image_url,
+					primary_image_caption: row.primary_image_caption,
+					image: row.image,
+					version: 1
+				})
+				WITH f, row
+				FOREACH (genre_name IN row.genres |
+					MERGE (g:Genre {name: genre_name})
+					MERGE (f)-[:HAS_GENRE]->(g)
+				)
+				FOREACH (actor_name IN row.actors |
+					MERGE (a:Actor {name: actor_name})
+					MERGE (f)-[:HAS_ACTOR]->(a)
+				)
+				FOREACH (director_name IN row.directors |
+					MERGE (d:Director {name: director_name})
+					MERGE (f)-[:HAS_DIRECTOR]->(d)
+				)
+				RETURN id(f)
+			`
+
+			batch := make([]map[string]any, len(batchFilms))
+			for k, film := range batchFilms {
+				genres := make([]string, len(film.Genres))
+				for j, g := range film.Genres {
+					genres[j] = g.Name
+				}
+
+				actors := make([]string, len(film.Actors))
+				for j, a := range film.Actors {
+					actors[j] = a.Name
+				}
+
+				directors := make([]string, len(film.Directors))
+				for j, d := range film.Directors {
+					directors[j] = d.Name
+				}
+
+				batch[k] = map[string]any{
+					"imdb_id":               film.IMDbID,
+					"title":                 film.Title,
+					"original_title":        film.OriginalTitle,
+					"year":                  film.Year,
+					"release_date":          film.ReleaseDate,
+					"runtime":               int(film.Runtime),
+					"runtime_seconds":       film.RuntimeSeconds,
+					"rating":                film.Rating,
+					"vote_count":            film.VoteCount,
+					"description":           film.Description,
+					"plot_summary":          film.PlotSummary,
+					"certificate":           film.Certificate,
+					"production_status":     film.ProductionStatus,
+					"metacritic_score":      film.MetacriticScore,
+					"trailer_id":            film.TrailerID,
+					"watch_categories":      film.WatchCategories,
+					"watch_providers":       film.WatchProviders,
+					"primary_image_url":     film.PrimaryImageURL,
+					"primary_image_caption": film.PrimaryImageCaption,
+					"image":                 film.Img,
+					"genres":                genres,
+					"actors":                actors,
+					"directors":             directors,
+				}
+			}
+
+			result, err := tx.Run(ctx, query, map[string]any{"batch": batch})
+			if err != nil {
+				return nil, err
+			}
+
+			var k int
+			for result.Next(ctx) {
+				if k < len(batchFilms) {
+					batchFilms[k].ID = result.Record().Values[0].(int64)
+					k++
+				}
+			}
+
+			return nil, result.Err()
+		})
+
+		session.Close(ctx)
+
+		if err != nil {
+			return err
+		}
 	}
 
-	filmID, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	film.ID = filmID
-
-	// Batch insert related entities
-	if err := model.batchInsertRelations(tx, ctx, film); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return nil
 }
 
 func (model FilmModel) Update(film *Film) error {
-	tx, err := model.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	query := `
-		UPDATE films
-		SET imdb_id = ?, title = ?, original_title = ?, year = ?, release_date = ?, 
-		runtime = ?, runtime_seconds = ?, rating = ?, vote_count = ?, description = ?, 
-		plot_summary = ?, certificate = ?, production_status = ?, metacritic_score = ?, 
-		trailer_id = ?, watch_categories = ?, watch_providers = ?, primary_image_url = ?, 
-		primary_image_caption = ?, image = ?, version = version + 1
-		WHERE id = ? AND version = ?
-	`
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	result, err := tx.ExecContext(ctx, query,
-		film.IMDbID, film.Title, film.OriginalTitle, film.Year, film.ReleaseDate,
-		film.Runtime, film.RuntimeSeconds, film.Rating, film.VoteCount, film.Description,
-		film.PlotSummary, film.Certificate, film.ProductionStatus, film.MetacriticScore,
-		film.TrailerID, film.WatchCategories, film.WatchProviders, film.PrimaryImageURL,
-		film.PrimaryImageCaption, film.Img, film.ID, film.Version)
-	if err != nil {
-		return err
-	}
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		// Check version and update
+		query := `
+			MATCH (f:Film)
+			WHERE id(f) = $id AND f.version = $version
+			SET f.imdb_id = $imdb_id,
+				f.title = $title,
+				f.original_title = $original_title,
+				f.year = $year,
+				f.release_date = $release_date,
+				f.runtime = $runtime,
+				f.runtime_seconds = $runtime_seconds,
+				f.rating = $rating,
+				f.vote_count = $vote_count,
+				f.description = $description,
+				f.plot_summary = $plot_summary,
+				f.certificate = $certificate,
+				f.production_status = $production_status,
+				f.metacritic_score = $metacritic_score,
+				f.trailer_id = $trailer_id,
+				f.watch_categories = $watch_categories,
+				f.watch_providers = $watch_providers,
+				f.primary_image_url = $primary_image_url,
+				f.primary_image_caption = $primary_image_caption,
+				f.image = $image,
+				f.version = f.version + 1
+			
+			// Clear existing relationships
+			WITH f
+			OPTIONAL MATCH (f)-[r1:HAS_GENRE]->() DELETE r1
+			WITH f
+			OPTIONAL MATCH (f)-[r2:HAS_ACTOR]->() DELETE r2
+			WITH f
+			OPTIONAL MATCH (f)-[r3:HAS_DIRECTOR]->() DELETE r3
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
+			// Re-create relationships
+			WITH f
+			FOREACH (genre_name IN $genres |
+				MERGE (g:Genre {name: genre_name})
+				MERGE (f)-[:HAS_GENRE]->(g)
+			)
+			WITH f
+			FOREACH (actor_name IN $actors |
+				MERGE (a:Actor {name: actor_name})
+				MERGE (f)-[:HAS_ACTOR]->(a)
+			)
+			WITH f
+			FOREACH (director_name IN $directors |
+				MERGE (d:Director {name: director_name})
+				MERGE (f)-[:HAS_DIRECTOR]->(d)
+			)
+			
+			RETURN f.version
+		`
 
-	if rowsAffected == 0 {
-		return ErrEditConflict
-	}
+		genres := make([]string, len(film.Genres))
+		for i, g := range film.Genres {
+			genres[i] = g.Name
+		}
 
-	film.Version++
+		actors := make([]string, len(film.Actors))
+		for i, a := range film.Actors {
+			actors[i] = a.Name
+		}
 
-	if err := model.batchInsertRelations(tx, ctx, film); err != nil {
-		return err
-	}
+		directors := make([]string, len(film.Directors))
+		for i, d := range film.Directors {
+			directors[i] = d.Name
+		}
 
-	return tx.Commit()
+		params := map[string]any{
+			"id":                    film.ID,
+			"version":               film.Version,
+			"imdb_id":               film.IMDbID,
+			"title":                 film.Title,
+			"original_title":        film.OriginalTitle,
+			"year":                  film.Year,
+			"release_date":          film.ReleaseDate,
+			"runtime":               int(film.Runtime),
+			"runtime_seconds":       film.RuntimeSeconds,
+			"rating":                film.Rating,
+			"vote_count":            film.VoteCount,
+			"description":           film.Description,
+			"plot_summary":          film.PlotSummary,
+			"certificate":           film.Certificate,
+			"production_status":     film.ProductionStatus,
+			"metacritic_score":      film.MetacriticScore,
+			"trailer_id":            film.TrailerID,
+			"watch_categories":      film.WatchCategories,
+			"watch_providers":       film.WatchProviders,
+			"primary_image_url":     film.PrimaryImageURL,
+			"primary_image_caption": film.PrimaryImageCaption,
+			"image":                 film.Img,
+			"genres":                genres,
+			"actors":                actors,
+			"directors":             directors,
+		}
+
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			film.Version = int32(result.Record().Values[0].(int64))
+			return nil, nil
+		}
+
+		return nil, ErrEditConflict
+	})
+
+	return err
 }
 
 func (model FilmModel) Delete(id int64) error {
-	if id < 1 {
+	if id < 0 {
 		return ErrRecordNotFound
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	query := `
-		DELETE FROM films WHERE id = ?
-	`
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
 
-	result, err := model.DB.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
-	}
+	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (f:Film)
+			WHERE id(f) = $id
+			DETACH DELETE f
+			RETURN count(f)
+		`
+		result, err := tx.Run(ctx, query, map[string]any{"id": id})
+		if err != nil {
+			return nil, err
+		}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
+		if result.Next(ctx) {
+			count := result.Record().Values[0].(int64)
+			if count == 0 {
+				return nil, ErrRecordNotFound
+			}
+			return nil, nil
+		}
 
-	if rowsAffected == 0 {
-		return ErrRecordNotFound
-	}
+		return nil, ErrRecordNotFound
+	})
 
-	return nil
-
+	return err
 }
 
 func (model FilmModel) GetAll(title string, genres []string, actors []string, directors []string, filters Filters) ([]*Film, Metadata, error) {
-	// First get the total count
-	countQuery := `
-		SELECT COUNT(DISTINCT f.id)
-		FROM films f
-		LEFT JOIN film_genres fg ON f.id = fg.film_id
-		LEFT JOIN genres g ON fg.genre_id = g.id
-		LEFT JOIN film_actors fa ON f.id = fa.film_id
-		LEFT JOIN actors a ON fa.actor_id = a.id
-		LEFT JOIN film_directors fd ON f.id = fd.film_id
-		LEFT JOIN directors d ON fd.director_id = d.id
-		WHERE (? = '' OR f.title LIKE '%' || ? || '%')
-	`
-
-	args := []interface{}{title, title}
-
-	if len(genres) > 0 {
-		placeholders := make([]string, len(genres))
-		for i, genre := range genres {
-			placeholders[i] = "?"
-			args = append(args, genre)
-		}
-		countQuery += fmt.Sprintf(" AND g.name IN (%s)", strings.Join(placeholders, ","))
-	}
-
-	if len(actors) > 0 {
-		placeholders := make([]string, len(actors))
-		for i, actor := range actors {
-			placeholders[i] = "?"
-			args = append(args, actor)
-		}
-		countQuery += fmt.Sprintf(" AND a.name IN (%s)", strings.Join(placeholders, ","))
-	}
-
-	if len(directors) > 0 {
-		placeholders := make([]string, len(directors))
-		for i, director := range directors {
-			placeholders[i] = "?"
-			args = append(args, director)
-		}
-		countQuery += fmt.Sprintf(" AND d.name IN (%s)", strings.Join(placeholders, ","))
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	var totalRecords int
-	err := model.DB.QueryRowContext(ctx, countQuery, args...).Scan(&totalRecords)
-	if err != nil {
-		return nil, Metadata{}, err
-	}
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
 
-	// Now get the actual films
-	query := fmt.Sprintf(`
-		SELECT DISTINCT f.id, f.imdb_id, f.title, f.original_title, f.year, f.release_date, 
-		f.runtime, f.runtime_seconds, f.rating, f.vote_count, f.description, f.plot_summary, 
-		f.certificate, f.production_status, f.metacritic_score, f.trailer_id, 
-		f.watch_categories, f.watch_providers, f.primary_image_url, f.primary_image_caption, 
-		f.image, f.version,
-		(SELECT json_group_array(g2.name) FROM film_genres fg2 JOIN genres g2 ON fg2.genre_id = g2.id WHERE fg2.film_id = f.id) AS genres,
-		(SELECT json_group_array(a2.name) FROM film_actors fa2 JOIN actors a2 ON fa2.actor_id = a2.id WHERE fa2.film_id = f.id) AS actors,
-		(SELECT json_group_array(d2.name) FROM film_directors fd2 JOIN directors d2 ON fd2.director_id = d2.id WHERE fd2.film_id = f.id) AS directors
-		FROM films f
-		LEFT JOIN film_genres fg ON f.id = fg.film_id
-		LEFT JOIN genres g ON fg.genre_id = g.id
-		LEFT JOIN film_actors fa ON f.id = fa.film_id
-		LEFT JOIN actors a ON fa.actor_id = a.id
-		LEFT JOIN film_directors fd ON f.id = fd.film_id
-		LEFT JOIN directors d ON fd.director_id = d.id
-		WHERE (? = '' OR f.title LIKE '%%' || ? || '%%')
-	`)
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		// Build dynamic query
+		whereClause := "WHERE ($title = '' OR toLower(f.title) CONTAINS toLower($title))"
 
-	args = []interface{}{title, title}
-
-	if len(genres) > 0 {
-		placeholders := make([]string, len(genres))
-		for i, genre := range genres {
-			placeholders[i] = "?"
-			args = append(args, genre)
+		if len(genres) > 0 {
+			whereClause += " AND ANY(g IN genres WHERE g IN $genres)"
 		}
-		query += fmt.Sprintf(" AND g.name IN (%s)", strings.Join(placeholders, ","))
-	}
-
-	if len(actors) > 0 {
-		placeholders := make([]string, len(actors))
-		for i, actor := range actors {
-			placeholders[i] = "?"
-			args = append(args, actor)
+		if len(actors) > 0 {
+			whereClause += " AND ANY(a IN actors WHERE a IN $actors)"
 		}
-		query += fmt.Sprintf(" AND a.name IN (%s)", strings.Join(placeholders, ","))
-	}
-
-	if len(directors) > 0 {
-		placeholders := make([]string, len(directors))
-		for i, director := range directors {
-			placeholders[i] = "?"
-			args = append(args, director)
+		if len(directors) > 0 {
+			whereClause += " AND ANY(d IN directors WHERE d IN $directors)"
 		}
-		query += fmt.Sprintf(" AND d.name IN (%s)", strings.Join(placeholders, ","))
-	}
 
-	query += fmt.Sprintf(" ORDER BY %s f.id ASC LIMIT ? OFFSET ?", filters.sortColumn())
-	args = append(args, filters.limit(), filters.offset())
+		// Count query
+		countQuery := `
+			MATCH (f:Film)
+			OPTIONAL MATCH (f)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (f)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (f)-[:HAS_DIRECTOR]->(d:Director)
+			WITH f, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors
+			` + whereClause + `
+			RETURN count(f)
+		`
 
-	rows, err := model.DB.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, Metadata{}, err
-	}
-	defer rows.Close()
+		params := map[string]any{
+			"title":     title,
+			"genres":    genres,
+			"actors":    actors,
+			"directors": directors,
+			"limit":     filters.limit(),
+			"offset":    filters.offset(),
+		}
 
-	films := []*Film{}
-	for rows.Next() {
-		var film Film
-		var genres StringArray
-		var actors StringArray
-		var directors StringArray
-
-		err := rows.Scan(
-			&film.ID,
-			&film.IMDbID,
-			&film.Title,
-			&film.OriginalTitle,
-			&film.Year,
-			&film.ReleaseDate,
-			&film.Runtime,
-			&film.RuntimeSeconds,
-			&film.Rating,
-			&film.VoteCount,
-			&film.Description,
-			&film.PlotSummary,
-			&film.Certificate,
-			&film.ProductionStatus,
-			&film.MetacriticScore,
-			&film.TrailerID,
-			&film.WatchCategories,
-			&film.WatchProviders,
-			&film.PrimaryImageURL,
-			&film.PrimaryImageCaption,
-			&film.Img,
-			&film.Version,
-			&genres,
-			&actors,
-			&directors,
-		)
+		countResult, err := tx.Run(ctx, countQuery, params)
 		if err != nil {
-			return nil, Metadata{}, err
+			return nil, err
 		}
 
-		// Convert string arrays to respective types
-		film.Genres = make([]Genre, len(genres))
-		for i, genre := range genres {
-			film.Genres[i] = Genre{Name: genre}
+		totalRecords := 0
+		if countResult.Next(ctx) {
+			totalRecords = int(countResult.Record().Values[0].(int64))
 		}
 
-		film.Directors = make([]Director, len(directors))
-		for i, director := range directors {
-			film.Directors[i] = Director{Name: director}
+		// Prepare sort string
+		sortStr := filters.sortColumn()
+		if sortStr == "" {
+			sortStr = "id ASC"
+		}
+		sortStr = strings.TrimSuffix(sortStr, ",")
+		sortStr = strings.ReplaceAll(sortStr, ",", ", f.")
+		sortStr = "f." + sortStr
+
+		// Data query
+		dataQuery := `
+			MATCH (f:Film)
+			OPTIONAL MATCH (f)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (f)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (f)-[:HAS_DIRECTOR]->(d:Director)
+			WITH f, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors
+			` + whereClause + `
+			RETURN f, genres, actors, directors
+			ORDER BY ` + sortStr + `
+			SKIP $offset
+			LIMIT $limit
+		`
+
+		dataResult, err := tx.Run(ctx, dataQuery, params)
+		if err != nil {
+			return nil, err
 		}
 
-		film.Actors = make([]Actor, len(actors))
-		for i, actor := range actors {
-			film.Actors[i] = Actor{Name: actor}
+		films := []*Film{}
+		for dataResult.Next(ctx) {
+			record := dataResult.Record()
+			node, _ := record.Get("f")
+			filmNode := node.(neo4j.Node)
+
+			film := &Film{
+				ID:                  filmNode.Id,
+				IMDbID:              getStringProp(filmNode, "imdb_id"),
+				Title:               getStringProp(filmNode, "title"),
+				OriginalTitle:       getStringProp(filmNode, "original_title"),
+				Year:                int32(getIntProp(filmNode, "year")),
+				ReleaseDate:         getStringProp(filmNode, "release_date"),
+				Runtime:             Runtime(getIntProp(filmNode, "runtime")),
+				RuntimeSeconds:      int32(getIntProp(filmNode, "runtime_seconds")),
+				Rating:              float32(getFloatProp(filmNode, "rating")),
+				VoteCount:           float32(getFloatProp(filmNode, "vote_count")),
+				Description:         getStringProp(filmNode, "description"),
+				PlotSummary:         getStringProp(filmNode, "plot_summary"),
+				Certificate:         getStringProp(filmNode, "certificate"),
+				ProductionStatus:    getStringProp(filmNode, "production_status"),
+				MetacriticScore:     int32(getIntProp(filmNode, "metacritic_score")),
+				TrailerID:           getStringProp(filmNode, "trailer_id"),
+				WatchCategories:     getStringProp(filmNode, "watch_categories"),
+				WatchProviders:      getStringProp(filmNode, "watch_providers"),
+				PrimaryImageURL:     getStringProp(filmNode, "primary_image_url"),
+				PrimaryImageCaption: getStringProp(filmNode, "primary_image_caption"),
+				Img:                 getStringProp(filmNode, "image"),
+				Version:             int32(getIntProp(filmNode, "version")),
+			}
+
+			genresRaw, _ := record.Get("genres")
+			for _, g := range genresRaw.([]any) {
+				film.Genres = append(film.Genres, Genre{Name: g.(string)})
+			}
+
+			actorsRaw, _ := record.Get("actors")
+			for _, a := range actorsRaw.([]any) {
+				film.Actors = append(film.Actors, Actor{Name: a.(string)})
+			}
+
+			directorsRaw, _ := record.Get("directors")
+			for _, d := range directorsRaw.([]any) {
+				film.Directors = append(film.Directors, Director{Name: d.(string)})
+			}
+
+			films = append(films, film)
 		}
 
-		films = append(films, &film)
-	}
+		metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+		return struct {
+			Films    []*Film
+			Metadata Metadata
+		}{films, metadata}, nil
+	})
 
-	if err = rows.Err(); err != nil {
+	if err != nil {
 		return nil, Metadata{}, err
 	}
 
-	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
-	return films, metadata, nil
+	res := result.(struct {
+		Films    []*Film
+		Metadata Metadata
+	})
+
+	return res.Films, res.Metadata, nil
 }
 
-func (model FilmModel) batchInsertRelations(tx *sql.Tx, ctx context.Context, film *Film) error {
-	// Delete existing relations
-	_, err := tx.ExecContext(ctx, "DELETE FROM film_directors WHERE film_id = ?", film.ID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, "DELETE FROM film_actors WHERE film_id = ?", film.ID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, "DELETE FROM film_genres WHERE film_id = ?", film.ID)
-	if err != nil {
-		return err
-	}
-
-	// Insert directors
-	for _, director := range film.Directors {
-		// Insert or get director
-		var directorID int64
-		err := tx.QueryRowContext(ctx, "INSERT OR IGNORE INTO directors (name) VALUES (?)", director.Name).Scan()
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-
-		err = tx.QueryRowContext(ctx, "SELECT id FROM directors WHERE name = ?", director.Name).Scan(&directorID)
-		if err != nil {
-			return err
-		}
-
-		// Link film and director
-		_, err = tx.ExecContext(ctx, "INSERT OR IGNORE INTO film_directors (film_id, director_id) VALUES (?, ?)", film.ID, directorID)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Insert actors
-	for _, actor := range film.Actors {
-		// Insert or get actor
-		var actorID int64
-		err := tx.QueryRowContext(ctx, "INSERT OR IGNORE INTO actors (name) VALUES (?)", actor.Name).Scan()
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-
-		err = tx.QueryRowContext(ctx, "SELECT id FROM actors WHERE name = ?", actor.Name).Scan(&actorID)
-		if err != nil {
-			return err
-		}
-
-		// Link film and actor
-		_, err = tx.ExecContext(ctx, "INSERT OR IGNORE INTO film_actors (film_id, actor_id) VALUES (?, ?)", film.ID, actorID)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Insert genres
-	for _, genre := range film.Genres {
-		// Insert or get genre
-		var genreID int64
-		err := tx.QueryRowContext(ctx, "INSERT OR IGNORE INTO genres (name) VALUES (?)", genre.Name).Scan()
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-
-		err = tx.QueryRowContext(ctx, "SELECT id FROM genres WHERE name = ?", genre.Name).Scan(&genreID)
-		if err != nil {
-			return err
-		}
-
-		// Link film and genre
-		_, err = tx.ExecContext(ctx, "INSERT OR IGNORE INTO film_genres (film_id, genre_id) VALUES (?, ?)", film.ID, genreID)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Count returns the number of films in the database.
 func (m *FilmModel) Count() (int, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM films` // Adjust the table name as necessary
-	err := m.DB.QueryRowContext(context.Background(), query).Scan(&count)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	session := m.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `MATCH (f:Film) RETURN count(f)`
+		result, err := tx.Run(ctx, query, nil)
+		if err != nil {
+			return 0, err
+		}
+
+		if result.Next(ctx) {
+			return int(result.Record().Values[0].(int64)), nil
+		}
+		return 0, nil
+	})
+
 	if err != nil {
 		return 0, err
 	}
-	return count, nil
+
+	return result.(int), nil
+}
+
+func (model FilmModel) GetRecommendations(userID int64, limit int) ([]*Film, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	session := model.Driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		query := `
+			MATCH (u:User)-[:HAS_WATCHLIST]->(w:Watchlist)-[:FOR_FILM]->(source:Film)
+			WHERE id(u) = $user_id
+			
+			// Determine multiplier based on user preference (Rating > Priority > Default)
+			WITH u, source, 
+				CASE 
+					WHEN w.rating IS NOT NULL THEN toFloat(w.rating)
+					WHEN w.priority IS NOT NULL THEN toFloat(w.priority)
+					ELSE 5.0
+				END AS multiplier
+
+			// Find films sharing relationship attributes (Genre/Actor/Director)
+			MATCH (source)-->(shared)<--(rec:Film)
+			WHERE NOT (u)-[:HAS_WATCHLIST]->(:Watchlist)-[:FOR_FILM]->(rec) AND rec <> source
+			
+			// Calculate relationship-based score
+			WITH u, source, rec, multiplier,
+				sum(
+					CASE 
+						WHEN 'Director' IN labels(shared) THEN 5 
+						WHEN 'Actor' IN labels(shared) THEN 3 
+						WHEN 'Genre' IN labels(shared) THEN 1 
+						ELSE 0 
+					END
+				) AS rel_score
+			
+			// Add additional attribute matching scores
+			WITH rec, multiplier, rel_score,
+				CASE WHEN source.certificate = rec.certificate THEN 2 ELSE 0 END AS cert_score,
+				CASE WHEN abs(source.year - rec.year) <= 5 THEN 2 ELSE 0 END AS year_score,
+				CASE WHEN abs(source.runtime - rec.runtime) <= 20 THEN 1 ELSE 0 END AS runtime_score
+			
+			// Calculate total weighted score
+			WITH rec, (rel_score + cert_score + year_score + runtime_score) * multiplier AS score
+			ORDER BY score DESC
+			LIMIT $limit
+
+			// Fetch details for result
+			OPTIONAL MATCH (rec)-[:HAS_GENRE]->(g:Genre)
+			OPTIONAL MATCH (rec)-[:HAS_ACTOR]->(a:Actor)
+			OPTIONAL MATCH (rec)-[:HAS_DIRECTOR]->(d:Director)
+			RETURN rec, collect(DISTINCT g.name) as genres, collect(DISTINCT a.name) as actors, collect(DISTINCT d.name) as directors, score
+		`
+
+		params := map[string]any{
+			"user_id": userID,
+			"limit":   limit,
+		}
+
+		result, err := tx.Run(ctx, query, params)
+		if err != nil {
+			return nil, err
+		}
+
+		films := []*Film{}
+		for result.Next(ctx) {
+			record := result.Record()
+			node := record.Values[0].(neo4j.Node)
+			filmNode := node
+
+			film := &Film{
+				ID:                  filmNode.Id,
+				IMDbID:              getStringProp(filmNode, "imdb_id"),
+				Title:               getStringProp(filmNode, "title"),
+				OriginalTitle:       getStringProp(filmNode, "original_title"),
+				Year:                int32(getIntProp(filmNode, "year")),
+				ReleaseDate:         getStringProp(filmNode, "release_date"),
+				Runtime:             Runtime(getIntProp(filmNode, "runtime")),
+				RuntimeSeconds:      int32(getIntProp(filmNode, "runtime_seconds")),
+				Rating:              float32(getFloatProp(filmNode, "rating")),
+				VoteCount:           float32(getFloatProp(filmNode, "vote_count")),
+				Description:         getStringProp(filmNode, "description"),
+				PlotSummary:         getStringProp(filmNode, "plot_summary"),
+				Certificate:         getStringProp(filmNode, "certificate"),
+				ProductionStatus:    getStringProp(filmNode, "production_status"),
+				MetacriticScore:     int32(getIntProp(filmNode, "metacritic_score")),
+				TrailerID:           getStringProp(filmNode, "trailer_id"),
+				WatchCategories:     getStringProp(filmNode, "watch_categories"),
+				WatchProviders:      getStringProp(filmNode, "watch_providers"),
+				PrimaryImageURL:     getStringProp(filmNode, "primary_image_url"),
+				PrimaryImageCaption: getStringProp(filmNode, "primary_image_caption"),
+				Img:                 getStringProp(filmNode, "image"),
+				Version:             int32(getIntProp(filmNode, "version")),
+			}
+
+			genresRaw := record.Values[1]
+			for _, g := range genresRaw.([]any) {
+				film.Genres = append(film.Genres, Genre{Name: g.(string)})
+			}
+
+			actorsRaw := record.Values[2]
+			for _, a := range actorsRaw.([]any) {
+				film.Actors = append(film.Actors, Actor{Name: a.(string)})
+			}
+
+			directorsRaw := record.Values[3]
+			for _, d := range directorsRaw.([]any) {
+				film.Directors = append(film.Directors, Director{Name: d.(string)})
+			}
+
+			films = append(films, film)
+		}
+
+		return films, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.([]*Film), nil
+}
+
+// Helper functions to safely get properties
+func getStringProp(node neo4j.Node, key string) string {
+	if val, ok := node.Props[key]; ok && val != nil {
+		return val.(string)
+	}
+	return ""
+}
+
+func getIntProp(node neo4j.Node, key string) int64 {
+	if val, ok := node.Props[key]; ok && val != nil {
+		return val.(int64)
+	}
+	return 0
+}
+
+func getFloatProp(node neo4j.Node, key string) float64 {
+	if val, ok := node.Props[key]; ok && val != nil {
+		return val.(float64)
+	}
+	return 0.0
 }

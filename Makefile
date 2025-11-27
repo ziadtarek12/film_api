@@ -18,14 +18,15 @@ api/build:
 ## run/api : Run the api
 .PHONY: 
 api/run:
-	./bin/api -db-dsn=${FILMAPI_DB_DSN} -port=${APP_PORT} -limiter-burst=${LIMITER_BURST} -limiter-rps=${LIMITER_RPS} -limiter-enabled=${LIMITER_ENABLED} -cors-trusted-origin=*
+	./bin/api -db-uri="${NEO4J_URI}" -db-username="${NEO4J_USERNAME}" -db-password="${NEO4J_PASSWORD}" -port=${APP_PORT} -limiter-burst=${LIMITER_BURST} -limiter-rps=${LIMITER_RPS} -limiter-enabled=${LIMITER_ENABLED} -cors-trusted-origin=*
+
 
 
 ## db/migrations/new name=$1: create a new database migration
 .PHONY: db/migrations/up
 db/migrations/up: confirm
 	@echo 'Running up migrations...'
-	migrate -path=./migrations -database=${FILMAPI_DB_DSN} up
+	migrate -path=./migrations -database=${NEO4J_URI} up
 
 
 .PHONY: db/psql

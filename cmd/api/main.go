@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -13,17 +12,25 @@ import (
 
 	"filmapi.zeyadtarek.net/internals/jsonlog"
 	"filmapi.zeyadtarek.net/internals/models"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 type config struct {
 	port int
 	env  string
 	db   struct {
-		dsn          string
+		uri          string
+		username     string
+		password     string
 		maxOpenConns int
 		maxIdleConns int
 		maxIdleTime  string
+	}
+
+	jwt struct {
+		secret          string
+		accessTokenTTL  time.Duration
+		refreshTokenTTL time.Duration
 	}
 
 	limiter struct {
@@ -49,13 +56,16 @@ const version = "1.0.0"
 var buildTime string
 
 func main() {
+	fmt.Println("Starting application...")
 	var cfg config
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment(development|staging|production)")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "./database.sqlite", "SQLite database file path")
-	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "SQLite max open connections")
-	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "SQLite max idle connections")
-	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "SQLite max connection idle time")
+
+	// Neo4j configuration
+	flag.StringVar(&cfg.db.uri, "db-uri", os.Getenv("NEO4J_URI"), "Neo4j URI")
+	flag.StringVar(&cfg.db.username, "db-username", os.Getenv("NEO4J_USERNAME"), "Neo4j Username")
+	flag.StringVar(&cfg.db.password, "db-password", os.Getenv("NEO4J_PASSWORD"), "Neo4j Password")
+
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum requests per second")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enabled rate limiter")
@@ -70,6 +80,14 @@ func main() {
 
 	flag.Parse()
 
+	// JWT configuration
+	cfg.jwt.secret = os.Getenv("JWT_SECRET")
+	cfg.jwt.accessTokenTTL = 1 * time.Hour
+	cfg.jwt.refreshTokenTTL = 7 * 24 * time.Hour
+
+	fmt.Println(cfg.db.uri)
+	fmt.Println(cfg.db.username)
+	fmt.Println(cfg.db.password)
 	if *displayVersion {
 		fmt.Printf("Version:\t%s\n", version)
 		fmt.Printf("Build time:\t%s\n", buildTime)
@@ -83,16 +101,16 @@ func main() {
 		logger: logger,
 	}
 
-	db, err := openDB(cfg)
+	driver, err := openDB(cfg)
 	if err != nil {
 		app.logger.PrintFatal(err, nil)
 	}
 	app.logger.PrintInfo("database connection established", nil)
-	defer db.Close()
+	defer driver.Close(context.Background())
 
-	app.models = models.New(db)
+	app.models = models.New(driver)
 
-	// Check if the database has less than 9999 films
+	// Check if the database has less than 100 films
 	if err := populateFilmsIfNeeded(app); err != nil {
 		app.logger.PrintFatal(err, nil)
 	}
@@ -103,31 +121,21 @@ func main() {
 	}
 }
 
-func openDB(cfg config) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", cfg.db.dsn)
+func openDB(cfg config) (neo4j.DriverWithContext, error) {
+	driver, err := neo4j.NewDriverWithContext(cfg.db.uri, neo4j.BasicAuth(cfg.db.username, cfg.db.password, ""))
 	if err != nil {
 		return nil, err
 	}
-
-	db.SetMaxOpenConns(cfg.db.maxOpenConns)
-	db.SetMaxIdleConns(cfg.db.maxIdleConns)
-
-	duration, err := time.ParseDuration(cfg.db.maxIdleTime)
-	if err != nil {
-		return nil, err
-	}
-
-	db.SetConnMaxIdleTime(duration)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err = db.PingContext(ctx)
+	err = driver.VerifyConnectivity(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return driver, nil
 }
 
 // populateFilmsIfNeeded checks the film count and populates the database if needed
@@ -166,6 +174,8 @@ func populateFilmsIfNeeded(app *application) error {
 	// Skip header row
 	records = records[1:]
 
+	var films []*models.Film
+
 	// Insert each film into the database
 	for i, record := range records {
 		if len(record) < 30 {
@@ -174,10 +184,17 @@ func populateFilmsIfNeeded(app *application) error {
 		}
 
 		// Parse year
-		year, err := strconv.ParseInt(record[3], 10, 32)
-		if err != nil {
-			app.logger.PrintError(fmt.Errorf("invalid year in record %d: %v", i+1, err), nil)
-			continue
+		var year int64
+		if record[3] == "Not Provided" || record[3] == "" {
+			app.logger.PrintInfo(fmt.Sprintf("Record %d: Year not provided, using default 1900", i+1), nil)
+			year = 1900
+		} else {
+			var err error
+			year, err = strconv.ParseInt(record[3], 10, 32)
+			if err != nil {
+				app.logger.PrintInfo(fmt.Sprintf("Record %d: invalid year '%s', using default 1900", i+1, record[3]), nil)
+				year = 1900
+			}
 		}
 
 		// Parse rating
@@ -319,13 +336,14 @@ func populateFilmsIfNeeded(app *application) error {
 			film.Genres = []models.Genre{{Name: "Unknown"}}
 		}
 
-		// Insert the film into the database
-		if err := app.models.Films.Insert(film); err != nil {
-			app.logger.PrintError(fmt.Errorf("error inserting film %s: %v", film.Title, err), nil)
-			continue
-		}
+		films = append(films, film)
+	}
 
-		app.logger.PrintInfo(fmt.Sprintf("Inserted film: %s (%d)", film.Title, film.Year), nil)
+	if len(films) > 0 {
+		if err := app.models.Films.InsertBulk(films); err != nil {
+			return fmt.Errorf("failed to bulk insert films: %v", err)
+		}
+		app.logger.PrintInfo(fmt.Sprintf("Successfully bulk inserted %d films", len(films)), nil)
 	}
 
 	return nil

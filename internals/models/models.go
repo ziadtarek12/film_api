@@ -1,8 +1,9 @@
 package models
 
 import (
-	"database/sql"
 	"errors"
+
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 var ErrRecordNotFound = errors.New("record doesn't exist")
@@ -16,12 +17,12 @@ type Models struct {
 	Watchlist   WatchlistModel
 }
 
-func New(DB *sql.DB) Models {
+func New(driver neo4j.DriverWithContext) Models {
 	return Models{
-		Films:       FilmModel{DB: DB},
-		Users:       UserModel{DB: DB},
-		Tokens:      TokenModel{DB: DB},
-		Permissions: PermissionModel{DB: DB},
-		Watchlist:   WatchlistModel{DB: DB},
+		Films:       FilmModel{Driver: driver},
+		Users:       UserModel{Driver: driver},
+		Tokens:      TokenModel{Driver: driver},
+		Permissions: PermissionModel{Driver: driver},
+		Watchlist:   WatchlistModel{Driver: driver},
 	}
 }

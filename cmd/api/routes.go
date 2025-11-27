@@ -7,7 +7,6 @@ import (
 func (app *application) routes() http.Handler {
 	router := http.NewServeMux()
 
-	// Welcome page
 	router.Handle("GET /", http.HandlerFunc(app.welcomeHandler))
 
 	// Healthcheck
@@ -24,6 +23,7 @@ func (app *application) routes() http.Handler {
 	router.Handle("GET /v1/films/{id}", app.requirePermission("films:read", http.HandlerFunc(app.getFilmHandler)))
 	router.Handle("PATCH /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.updateFilmHandler)))
 	router.Handle("DELETE /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.deleteFilmHandler)))
+	router.Handle("GET /v1/recommendations", app.requireActivatedUser(http.HandlerFunc(app.listRecommendationsHandler)))
 
 	// Watchlist routes (require authentication)
 	router.Handle("GET /v1/watchlist", app.requireActivatedUser(http.HandlerFunc(app.getWatchlistHandler)))

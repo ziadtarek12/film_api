@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"filmapi.zeyadtarek.net/internals/models"
-	"filmapi.zeyadtarek.net/internals/validator"
 	"golang.org/x/time/rate"
 )
 
@@ -60,22 +58,24 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		token := headerParts[1]
 
-		v := validator.New()
-
-		if models.ValidateTokenPlaintext(v, token); !v.Valid() {
+		// Verify JWT token (no database query!)
+		claims, err := app.verifyJWT(token)
+		if err != nil {
 			app.invalidAuthenticationTokenResponse(w, r)
 			return
 		}
 
-		user, err := app.models.Users.GetForToken(models.ScopeAuthentication, token)
-		if err != nil {
-			switch {
-			case errors.Is(err, models.ErrRecordNotFound):
-				app.invalidAuthenticationTokenResponse(w, r)
-			default:
-				app.serverErrorResponse(w, r, err)
-			}
+		// Ensure it's an access token
+		if claims.TokenType != "access" {
+			app.invalidAuthenticationTokenResponse(w, r)
 			return
+		}
+
+		// Create user from JWT claims (no DB query needed!)
+		user := &models.User{
+			ID:        claims.UserID,
+			Email:     claims.Email,
+			Activated: claims.Activated,
 		}
 
 		r = app.contextSetUser(r, user)

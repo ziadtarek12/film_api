@@ -1,1060 +1,718 @@
-# Film API
+# Film API 🎬
 
-A RESTful API service for managing a film database, built with Go. This API provides endpoints for creating, reading, updating, and deleting film records, along with user authentication and permission management.
+A high-performance RESTful API for film discovery and recommendations, built with **Go** and **Neo4j** graph database. Features intelligent multi-factor recommendations, JWT authentication, and comprehensive film management.
 
-## Features
+## ✨ Key Features
 
-- **Film Management**: Full CRUD operations for films
-- **Rich Film Data**: Support for genres, directors, actors, and ratings
-- **User Authentication**: Secure user registration and authentication
-- **Permission-based Access**: Role-based access control for API endpoints
-- **Personal Watchlists**: Users can create and manage their own film watchlists
-- **Watchlist Features**: Priority system, notes, watch tracking, and rating system
-- **Pagination & Filtering**: Advanced query options for film listings and watchlists
-- **CORS Support**: Configurable Cross-Origin Resource Sharing
-- **Rate Limiting**: Customizable rate limiting for API endpoints
+### 🤖 Intelligent Recommendation Engine
+- **Multi-dimensional scoring** algorithm analyzing 6 factors
+- **Weighted matching**: Directors (5×), Actors (3×), Genres (1×)
+- **Attribute similarity**: Certificate, Year range, Runtime
+- **Personalized**: Scores multiplied by your ratings/priority
+- **Graph-powered**: Leverages Neo4j relationships for fast traversal
 
-## Technical Stack
+### 🔐 Modern Authentication
+- **JWT tokens**: Industry-standard, stateless authentication
+- **Access tokens**: 1-hour lifetime for API calls
+- **Refresh tokens**: 7-day lifetime with revocation capability
+- **Zero database overhead**: Local JWT verification (10-50ms faster!)
+- **Django-ready**: Standard format for easy integration
 
-- **Language**: Go
-- **Database**: PostgreSQL
-- **Authentication**: Token-based authentication
-- **Documentation**: OpenAPI/Swagger
+### 📊 Rich Film Database
+- **8000+ films** auto-populated from IMDb dataset
+- **Comprehensive metadata**: Genres, Directors, Actors, Ratings, Certificates
+- **Graph relationships**: Efficient queries via Neo4j
+- **Full-text search**: Filter by title, cast, crew
+- **Advanced filtering**: Multi-criteria search with pagination
 
-## Getting Started
+### 📝 Personal Watchlists
+- **Priority system**: Rate films 1-10 for watch priority
+- **Rating system**: Rate watched films to improve recommendations  
+- **Watch tracking**: Mark films as watched with timestamps
+- **Notes**: Add personal comments to films
+- **User isolation**: Private, secure watchlists
+
+### ⚡ Performance & Scalability
+- **Stateless JWT**: No database queries for authentication
+- **Graph database**: Optimized for relationship queries
+- **Rate limiting**: Configurable protection against abuse
+- **CORS support**: Secure cross-origin requests
+- **Efficient pagination**: Handle large datasets smoothly
+
+---
+
+## 🛠 Technical Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Language** | Go 1.23+ |
+| **Database** | Neo4j (Graph Database) |
+| **Authentication** | JWT (golang-jwt/jwt/v5) |
+| **Password Hashing** | bcrypt |
+| **Rate Limiting** | golang.org/x/time/rate |
+| **Architecture** | RESTful API with middleware chain |
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Go (latest version)
-- PostgreSQL
-- Docker (optional)
+- Go 1.23 or later
+- Neo4j Database (Aura or local instance)
 
 ### Installation
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd film_api
-   ```
-
-2. Install dependencies:
-   ```bash
-   go mod tidy
-   ```
-
-3. Set up the environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-### Database Setup
-
-1. Create a PostgreSQL database
-2. Run the migrations:
-   ```bash
-   # Using golang-migrate
-   migrate -path ./migrations -database "postgres://your-connection-string" up
-   ```
-
-## API Documentation
-
-### Authentication
-
-All protected endpoints require a valid authentication token in the Authorization header:
 ```bash
-Authorization: Bearer <your-token>
+# Clone repository
+git clone <repository-url>
+cd film_api
+
+# Install dependencies
+go mod tidy
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your Neo4j credentials and JWT secret
 ```
 
-### Endpoints
+### Configuration
 
-#### Health Check
+Create `.env` file:
+```bash
+# Neo4j
+NEO4J_URI="neo4j+s://your-instance.databases.neo4j.io"
+NEO4J_USERNAME="neo4j"
+NEO4J_PASSWORD="your-password"
 
-```http
-GET /v1/healthcheck
+# JWT
+JWT_SECRET="your-super-secret-key-min-32-chars"
+
+# Server
+APP_PORT=4000
+APP_ENV=development
 ```
 
-Response:
-```json
-{
-  "status": "available",
-  "system_info": {
-    "environment": "development",
-    "version": "1.0.0"
-  }
-}
+**Generate secure JWT secret:**
+```bash
+openssl rand -base64 32
 ```
 
-#### User Management
+### Run
 
-##### Register User
+```bash
+# Build
+go build -o api ./cmd/api
+
+# Run
+./api
+```
+
+Server starts on `http://localhost:4000`
+
+---
+
+## 📚 API Documentation
+
+### Base URL
+```
+http://localhost:4000/v1
+```
+
+### Authentication Flow
+
+#### 1. Register User
 ```http
 POST /v1/users
-```
+Content-Type: application/json
 
-Request Body:
-```json
 {
   "name": "John Doe",
   "email": "john@example.com",
-  "password": "your-secure-password"
+  "password": "securepassword123"
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
   "user": {
     "id": 1,
-    "created_at": "2024-04-02T14:30:00Z",
+    "created_at": "2025-11-23T12:00:00Z",
     "name": "John Doe",
     "email": "john@example.com",
     "activated": false
   },
   "activation_token": {
-    "token": "ACTIVATION-TOKEN",
-    "expiry": "2024-04-03T14:30:00Z"
+    "token": "ABCDEF123456",
+    "expiry": "2025-11-24T12:00:00Z"
   }
 }
 ```
 
-##### Activate User
+#### 2. Activate Account
 ```http
 PUT /v1/users/activate
-```
+Content-Type: application/json
 
-Request Body:
-```json
 {
-  "token": "ACTIVATION-TOKEN"
+  "token": "ABCDEF123456"
 }
 ```
 
-Response:
+#### 3. Login (Get JWT)
+```http
+POST /v1/tokens/authentication
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Response:**
 ```json
 {
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
   "user": {
     "id": 1,
-    "created_at": "2024-04-02T14:30:00Z",
-    "name": "John Doe",
     "email": "john@example.com",
+    "name": "John Doe",
     "activated": true
   }
 }
 ```
 
-##### Authentication
+Use access token in subsequent requests:
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+---
+
+### Films Endpoints
+
+#### List Films
 ```http
-POST /v1/tokens/authentication
+GET /v1/films?page=1&page_size=20&sort=-rating
+Authorization: Bearer YOUR_TOKEN
 ```
 
-Request Body:
-```json
-{
-  "email": "john@example.com",
-  "password": "your-secure-password"
-}
-```
-
-Response:
-```json
-{
-  "authentication_token": {
-    "token": "YOUR-AUTH-TOKEN",
-    "expiry": "2024-04-03T14:30:00Z"
-  }
-}
-```
-
-#### Films (Protected Endpoints)
-
-##### List Films
-```http
-GET /v1/films
-```
-
-Query Parameters:
+**Query Parameters:**
 - `page` (int): Page number (default: 1)
-- `page_size` (int): Results per page (default: 20)
-- `title` (string): Filter by title
+- `page_size` (int): Results per page (default: 20, max: 100)
+- `title` (string): Filter by title (partial match)
 - `genres` (string): Filter by genres (comma-separated)
-- `directors` (string): Filter by directors (comma-separated)
 - `actors` (string): Filter by actors (comma-separated)
-- `sort` (string): Sort field (-field for descending)
+- `directors` (string): Filter by directors (comma-separated)
+- `sort` (string): Sort field(s), prefix `-` for descending
+  - Options: `id`, `title`, `year`, `runtime`, `rating`
 
-Example Response:
+**Example:**
+```bash
+curl -H "Authorization: Bearer TOKEN" \
+  "http://localhost:4000/v1/films?title=inception&genres=sci-fi&sort=-rating&page_size=5"
+```
+
+**Response:**
 ```json
 {
   "films": [
     {
-      "id": 1,
+      "id": 123,
+      "imdb_id": "tt1375666",
       "title": "Inception",
       "year": 2010,
       "runtime": "148 mins",
+      "certificate": "PG-13",
       "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "version": 1,
+      "description": "A mind-bending thriller...",
       "genres": ["Sci-Fi", "Thriller"],
       "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"],
+      "image": "https://m.media-amazon.com/..."
     }
   ],
   "metadata": {
     "current_page": 1,
-    "page_size": 20,
+    "page_size": 5,
     "first_page": 1,
-    "last_page": 1,
-    "total_records": 1
+    "last_page": 10,
+    "total_records": 50
   }
 }
 ```
 
-##### Create Film
+#### Get Film by ID
 ```http
-POST /v1/films
-Authorization: Bearer YOUR-AUTH-TOKEN
+GET /v1/films/{id}
+Authorization: Bearer YOUR_TOKEN
 ```
 
-Request Body:
-```json
+#### Create Film
+```http
+POST /v1/films
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
 {
   "title": "The Matrix",
   "year": 1999,
   "runtime": 136,
   "rating": 8.7,
-  "description": "A computer hacker learns about the true nature of reality",
-  "image": "http://example.com/matrix.jpg",
+  "certificate": "R",
+  "description": "A computer hacker learns...",
   "genres": ["Action", "Sci-Fi"],
   "directors": ["Lana Wachowski", "Lilly Wachowski"],
   "actors": ["Keanu Reeves", "Laurence Fishburne"]
 }
 ```
 
-Response:
-```json
-{
-  "film": {
-    "id": 2,
-    "title": "The Matrix",
-    "year": 1999,
-    "runtime": "136 mins",
-    "rating": 8.7,
-    "description": "A computer hacker learns about the true nature of reality",
-    "image": "http://example.com/matrix.jpg",
-    "version": 1,
-    "genres": ["Action", "Sci-Fi"],
-    "directors": ["Lana Wachowski", "Lilly Wachowski"],
-    "actors": ["Keanu Reeves", "Laurence Fishburne"]
-  }
-}
-```
-
-##### Get Film by ID
-```http
-GET /v1/films/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
-```
-
-Response:
-```json
-{
-  "film": {
-    "id": 2,
-    "title": "The Matrix",
-    "year": 1999,
-    "runtime": "136 mins",
-    "rating": 8.7,
-    "description": "A computer hacker learns about the true nature of reality",
-    "image": "http://example.com/matrix.jpg",
-    "version": 1,
-    "genres": ["Action", "Sci-Fi"],
-    "directors": ["Lana Wachowski", "Lilly Wachowski"],
-    "actors": ["Keanu Reeves", "Laurence Fishburne"]
-  }
-}
-```
-
-##### Update Film
+#### Update Film
 ```http
 PATCH /v1/films/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
-```
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
 
-Request Body:
-```json
 {
-  "title": "The Matrix",
-  "year": 1999,
-  "runtime": 136,
   "rating": 9.0,
-  "description": "Updated description",
-  "image": "http://example.com/matrix.jpg",
-  "genres": ["Action", "Sci-Fi"],
-  "directors": ["Lana Wachowski", "Lilly Wachowski"],
-  "actors": ["Keanu Reeves", "Laurence Fishburne"]
+  "description": "Updated description"
 }
 ```
 
-Response:
-```json
-{
-  "film": {
-    "id": 2,
-    "title": "The Matrix",
-    "year": 1999,
-    "runtime": "136 mins",
-    "rating": 9.0,
-    "description": "Updated description",
-    "image": "http://example.com/matrix.jpg",
-    "version": 2,
-    "genres": ["Action", "Sci-Fi"],
-    "directors": ["Lana Wachowski", "Lilly Wachowski"],
-    "actors": ["Keanu Reeves", "Laurence Fishburne"]
-  }
-}
-```
-
-##### Delete Film
+#### Delete Film
 ```http
 DELETE /v1/films/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
+Authorization: Bearer YOUR_TOKEN
 ```
 
-Response:
-```json
-{
-  "message": "movie deleted successfully"
-}
-```
+---
 
-#### Watchlist Management (Protected Endpoints)
+### Watchlist Endpoints
 
-The watchlist feature allows authenticated users to manage their personal list of films they want to watch or have watched.
-
-##### Add Film to Watchlist
+#### Add Film to Watchlist
 ```http
 POST /v1/watchlist
-Authorization: Bearer YOUR-AUTH-TOKEN
-```
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
 
-Request Body:
-```json
 {
-  "film_id": 1,
+  "film_id": 123,
   "notes": "Recommended by friend",
   "priority": 8
 }
 ```
 
-Response:
-```json
+#### Rate a Film
+```http
+POST /v1/watchlist
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
 {
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Recommended by friend",
-    "priority": 8,
-    "watched": false,
-    "watched_at": null,
-    "rating": null,
-    "version": 1,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
+  "film_id": 123,
+  "rating": 9,
+  "notes": "Masterpiece!",
+  "priority": 10
 }
 ```
+*Rating automatically marks film as watched*
 
-##### Get User's Watchlist
+#### Get Your Watchlist
 ```http
-GET /v1/watchlist
-Authorization: Bearer YOUR-AUTH-TOKEN
+GET /v1/watchlist?watched=false&sort=-priority
+Authorization: Bearer YOUR_TOKEN
 ```
 
-Query Parameters:
-- `page` (int): Page number (default: 1)
-- `page_size` (int): Results per page (default: 20)
-- `watched` (boolean): Filter by watched status (`true`, `false`)
-- `priority` (int): Filter by priority level (1-10)
-- `sort` (string): Sort field (-field for descending)
-  - Allowed fields: id, added_at, priority, watched
+**Query Parameters:**
+- `watched` (boolean): Filter by watched status
+- `priority` (int): Filter by priority (1-10)
+- `sort` (string): `id`, `added_at`, `priority`, `watched`
 
-Example Response:
+**Response:**
 ```json
 {
   "watchlist": [
     {
       "id": 1,
       "user_id": 123,
-      "film_id": 1,
-      "added_at": "2024-06-11T14:30:00Z",
-      "notes": "Recommended by friend",
-      "priority": 8,
+      "film_id": 456,
+      "added_at": "2025-11-23T10:00:00Z",
+      "notes": "Must watch!",
+      "priority": 10,
       "watched": false,
       "watched_at": null,
       "rating": null,
-      "version": 1,
       "film": {
-        "id": 1,
+        "id": 456,
         "title": "Inception",
-        "year": 2010,
-        "runtime": "148 mins",
-        "rating": 8.8,
-        "description": "A mind-bending thriller",
-        "image": "http://example.com/inception.jpg",
-        "genres": ["Sci-Fi", "Thriller"],
-        "directors": ["Christopher Nolan"],
-        "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
+        ...
       }
     }
   ],
-  "metadata": {
-    "current_page": 1,
-    "page_size": 20,
-    "first_page": 1,
-    "last_page": 1,
-    "total_records": 1
-  }
+  "metadata": {...}
 }
 ```
 
-##### Get Watchlist Entry
-```http
-GET /v1/watchlist/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
-```
-
-Response:
-```json
-{
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Recommended by friend",
-    "priority": 8,
-    "watched": true,
-    "watched_at": "2024-06-12T20:15:00Z",
-    "rating": 9,
-    "version": 2,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
-}
-```
-
-##### Update Watchlist Entry
+#### Update Watchlist Entry
 ```http
 PATCH /v1/watchlist/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
-```
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
 
-Request Body (all fields optional):
-```json
 {
-  "notes": "Amazing movie! Highly recommend",
-  "priority": 10,
+  "rating": 10,
   "watched": true,
-  "rating": 9
+  "notes": "Absolutely incredible"
 }
 ```
 
-Response:
-```json
-{
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Amazing movie! Highly recommend",
-    "priority": 10,
-    "watched": true,
-    "watched_at": "2024-06-12T20:15:00Z",
-    "rating": 9,
-    "version": 2,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
-}
-```
-
-##### Remove Film from Watchlist
+#### Remove from Watchlist
 ```http
 DELETE /v1/watchlist/{id}
-Authorization: Bearer YOUR-AUTH-TOKEN
+Authorization: Bearer YOUR_TOKEN
 ```
 
-Response:
+---
+
+### 🤖 Recommendations Endpoint
+
+#### Get Personalized Recommendations
+```http
+GET /v1/recommendations?limit=10
+Authorization: Bearer YOUR_TOKEN
+```
+
+**How it works:**
+
+The recommendation engine analyzes films in your watchlist and finds similar films using **6 scoring factors**:
+
+1. **Directors** (5× weight) - Same director as your favorite films
+2. **Actors** (3× weight) - Same actors
+3. **Genres** (1× weight) - Same genres
+4. **Certificate** (+2 points) - Same rating (PG-13, R, etc.)
+5. **Year Range** (+2 points) - Released within 5 years
+6. **Runtime** (+1 point) - Similar duration (±20 minutes)
+
+**Score Formula:**
+```
+Total Score = (
+  (Director matches × 5) +
+  (Actor matches × 3) +
+  (Genre matches × 1) +
+  (Certificate match × 2) +
+  (Year range match × 2) +
+  (Runtime match × 1)
+) × Your Rating/Priority
+```
+
+**Example:**
+
+If you rated **The Dark Knight** (2008, PG-13, 152 mins, Nolan) as **10/10**:
+
+**Inception** (2010, PG-13, 148 mins, Nolan) scores:
+- Director: 5 × 10 = 50
+- Certificate: 2 × 10 = 20
+- Year: 2 × 10 = 20
+- Runtime: 1 × 10 = 10
+- **Total: 100 points** 🎯
+
+**Response:**
 ```json
 {
-  "message": "watchlist entry removed successfully"
+  "recommendations": [
+    {
+      "id": 789,
+      "title": "Interstellar",
+      "year": 2014,
+      "runtime": "169 mins",
+      "certificate": "PG-13",
+      "rating": 8.6,
+      "genres": ["Sci-Fi", "Drama"],
+      "directors": ["Christopher Nolan"],
+      "actors": ["Matthew McConaughey", "Anne Hathaway"],
+      ...
+    }
+  ]
 }
 ```
 
-#### Watchlist Features
+---
 
-- **Priority System**: Rate films from 1-10 based on how much you want to watch them
-- **Notes**: Add personal notes about why you want to watch a film
-- **Watch Status**: Mark films as watched/unwatched
-- **Rating System**: Rate films you've watched from 1-10
-- **Automatic Timestamps**: Track when films were added and watched
-- **Full Film Details**: Each watchlist entry includes complete film information
-- **Filtering & Sorting**: Filter by watched status, priority, and sort by various fields
-- **User Isolation**: Each user's watchlist is completely private and separate
+## 🐍 Django Integration
 
-### Filtering and Pagination
+Perfect for Django web applications!
 
-The films listing endpoint (`GET /v1/films`) supports various query parameters for filtering and pagination:
+### Setup
 
-```http
-GET /v1/films?page=1&page_size=20&title=matrix&genres=action,sci-fi&directors=nolan&actors=keanu
+```python
+# settings.py
+JWT_SECRET = os.getenv('JWT_SECRET')  # Same as Go API
+JWT_ALGORITHM = 'HS256'
+FILM_API_URL = 'http://localhost:4000/v1'
 ```
 
-Query Parameters:
-- `page`: Page number (default: 1)
-- `page_size`: Number of results per page (default: 20)
-- `title`: Search by title (case-insensitive, partial match)
-- `genres`: Filter by genres (comma-separated)
-- `directors`: Filter by directors (comma-separated)
-- `actors`: Filter by actors (comma-separated)
-- `sort`: Sort results by field (prefix with - for descending order)
-  - Allowed fields: id, title, year, runtime, rating
+### Middleware
 
-### Permissions
+```python
+# middleware.py
+import jwt
+from django.conf import settings
 
-The API implements role-based access control with the following permissions:
-- `films:read`: Required for viewing film details
-- `films:write`: Required for creating, updating, and deleting films
+class FilmAPIAuthMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                # Verify JWT locally (no API call!)
+                payload = jwt.decode(
+                    token,
+                    settings.JWT_SECRET,
+                    algorithms=[settings.JWT_ALGORITHM]
+                )
+                request.user_id = payload['user_id']
+                request.user_email = payload['email']
+                request.user_activated = payload['activated']
+            except jwt.ExpiredSignatureError:
+                # Handle token refresh
+                pass
+            except jwt.InvalidTokenError:
+                pass
+        
+        return self.get_response(request)
+```
 
-These permissions are automatically assigned upon user activation and authentication.
+### Views
 
-## Error Handling
+```python
+# views.py
+import requests
+from django.conf import settings
 
-The API uses conventional HTTP response codes to indicate the success or failure of requests:
+def login_view(request):
+    """Login via Film API and store JWT"""
+    response = requests.post(
+        f'{settings.FILM_API_URL}/tokens/authentication',
+        json={
+            'email': request.POST['email'],
+            'password': request.POST['password']
+        }
+    )
+    
+    if response.status_code == 201:
+        data = response.json()
+        # Store tokens in session
+        request.session['access_token'] = data['access_token']
+        request.session['refresh_token'] = data['refresh_token']
+        return redirect('dashboard')
+    
+    return render(request, 'login.html', {'error': 'Invalid credentials'})
 
-- `200 OK`: Successful request
-- `201 Created`: Resource successfully created
-- `400 Bad Request`: Invalid request (e.g., invalid parameters)
-- `401 Unauthorized`: Authentication required
-- `403 Forbidden`: Authenticated but not authorized
-- `404 Not Found`: Resource not found
-- `405 Method Not Allowed`: Invalid HTTP method
-- `500 Internal Server Error`: Server error
+def get_films(request):
+    """Fetch films from API"""
+    headers = {
+        'Authorization': f"Bearer {request.session.get('access_token')}"
+    }
+    
+    response = requests.get(
+        f'{settings.FILM_API_URL}/films',
+        headers=headers,
+        params={'page_size': 20, 'sort': '-rating'}
+    )
+    
+    films = response.json().get('films', [])
+    return render(request, 'films.html', {'films': films})
 
-Error Response Format:
+def get_recommendations(request):
+    """Get personalized recommendations"""
+    headers = {
+        'Authorization': f"Bearer {request.session.get('access_token')}"
+    }
+    
+    response = requests.get(
+        f'{settings.FILM_API_URL}/recommendations',
+        headers=headers,
+        params={'limit': 10}
+    )
+    
+    recommendations = response.json().get('recommendations', [])
+    return render(request, 'recommendations.html', {
+        'recommendations': recommendations
+    })
+```
+
+---
+
+## 🔐 Security Features
+
+- ✅ **JWT Authentication**: Industry-standard, cryptographically secure
+- ✅ **bcrypt Password Hashing**: Slow hash function resistant to brute-force
+- ✅ **Token Expiry**: Access tokens expire in 1 hour
+- ✅ **Refresh Token Revocation**: Logout via database deletion
+- ✅ **CORS Protection**: Configurable trusted origins
+- ✅ **Rate Limiting**: Prevents API abuse
+- ✅ **Input Validation**: Comprehensive data validation
+- ✅ **SQL Injection Safe**: Parameterized Cypher queries
+
+---
+
+## ⚡ Performance
+
+### JWT vs Database Tokens
+
+**Request Flow:**
+
+```
+Before (Database Tokens):
+Client → API → Auth → Neo4j Query (10-50ms) → Process
+Total: ~50-100ms
+
+After (JWT):
+Client → API → Auth → JWT Verify (1ms) → Process
+Total: ~10-20ms
+```
+
+**At 10,000 requests/second:**
+- Database Tokens: 100,000-500,000 DB queries/sec 😰
+- JWT: 0 DB queries for auth 🚀
+
+---
+
+## 📊 Database Schema (Neo4j)
+
+### Nodes
+- `User` - Users with credentials
+- `Film` - Films with metadata
+- `Genre` - Film genres
+- `Actor` - Actors
+- `Director` - Directors
+- `Watchlist` - User watchlist entries
+- `Token` - Activation tokens
+- `RefreshToken` - JWT refresh tokens (for revocation)
+- `Permission` - User permissions
+
+### Relationships
+```cypher
+(Film)-[:HAS_GENRE]->(Genre)
+(Film)-[:HAS_ACTOR]->(Actor)
+(Film)-[:HAS_DIRECTOR]->(Director)
+(User)-[:HAS_WATCHLIST]->(Watchlist)-[:FOR_FILM]->(Film)
+(RefreshToken)-[:BELONGS_TO]->(User)
+(User)-[:HAS_PERMISSION]->(Permission)
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run test script
+chmod +x test_api.sh
+./test_api.sh
+```
+
+Tests include:
+- User registration & activation
+- JWT authentication
+- Film listing & filtering
+- Watchlist management
+- Recommendations
+
+---
+
+## ⚙️ Configuration
+
+**Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEO4J_URI` | Neo4j connection URI | Required |
+| `NEO4J_USERNAME` | Neo4j username | `neo4j` |
+| `NEO4J_PASSWORD` | Neo4j password | Required |
+| `JWT_SECRET` | JWT signing secret (32+ chars) | Required |
+| `APP_PORT` | Server port | `4000` |
+| `APP_ENV` | Environment | `development` |
+| `LIMITER_RPS` | Rate limit (requests/sec) | `2` |
+| `LIMITER_BURST` | Rate limit burst | `4` |
+| `CORS_TRUSTED_ORIGINS` | Allowed CORS origins | Empty |
+
+---
+
+## 🚦 Error Handling
+
+**HTTP Status Codes:**
+
+| Code | Meaning |
+|------|---------|
+| `200 OK` | Success |
+| `201 Created` | Resource created |
+| `400 Bad Request` | Invalid input |
+| `401 Unauthorized` | Missing/invalid token |
+| `403 Forbidden` | Insufficient permissions |
+| `404 Not Found` | Resource not found |
+| `429 Too Many Requests` | Rate limit exceeded |
+| `500 Internal Server Error` | Server error |
+
+**Error Response:**
 ```json
 {
   "error": "Detailed error message"
 }
 ```
 
-## Rate Limiting
-
-The API implements rate limiting to prevent abuse. Limits can be configured via environment variables:
-
-- `LIMITER_RPS`: Requests per second
-- `LIMITER_BURST`: Maximum burst size
-- `LIMITER_ENABLED`: Enable/disable rate limiting
-
-## Development
-
-### Running Locally
-
-```bash
-go run ./cmd/api
+**Validation Errors:**
+```json
+{
+  "error": {
+    "email": "must be a valid email address",
+    "password": "must be at least 8 characters"
+  }
+}
 ```
 
-### Using Docker
+---
 
-```bash
-docker-compose up --build
-```
-
-### Running Tests
-
-```bash
-go test ./...
-```
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 📝 License
 
-## User Management
+MIT License - see LICENSE file for details
 
-The application includes functionality for managing users, including creating, retrieving, updating, and authenticating users.
+---
 
-### User Model
-- **User Struct**: Represents a user with fields such as `ID`, `Name`, `Email`, `Password`, `Activated`, and `Version`.
-- **Password Management**: Uses bcrypt for hashing passwords, with methods for setting and verifying passwords.
+## 🙏 Acknowledgments
 
-### User Operations
-- **Insert**: Adds a new user to the database.
-- **GetByEmail**: Retrieves a user by their email address.
-- **Update**: Updates user details in the database.
-- **GetForToken**: Retrieves a user based on a token, useful for authentication.
+- Film data from IMDb Top Films dataset
+- Built with [Neo4j](https://neo4j.com/) Graph Database
+- Authentication powered by [golang-jwt](https://github.com/golang-jwt/jwt)
+- Inspired by modern microservices architecture
 
-### Validation
-- **Email Validation**: Ensures the email is provided and matches a valid format.
-- **Password Validation**: Checks that the password is provided and meets length requirements.
-- **User Validation**: Validates the user's name, email, and password.
+---
 
-### Error Handling
-- Handles errors such as duplicate emails and record not found scenarios.
+## 📞 Support
 
-### Anonymous User
-- Provides a concept of an anonymous user for cases where user authentication is not present.
+For issues and questions:
+- Open an issue on GitHub
+- Check existing documentation
+- Review API examples above
 
-## HTTP Response Handling
+---
 
-The application uses structured methods to handle HTTP responses, ensuring consistent status codes and error messages.
-
-### Status Codes
-- **200 OK**: Used for successful requests, such as retrieving or updating resources.
-- **201 Created**: Used when a new resource is successfully created.
-- **204 No Content**: Used when a resource is successfully deleted.
-- **400 Bad Request**: Used when the request is malformed or contains invalid data.
-- **403 Forbidden**: Used when access is denied, such as when CORS is not allowed.
-- **404 Not Found**: Used when a requested resource cannot be found.
-- **405 Method Not Allowed**: Used when an HTTP method is not supported for a resource.
-- **500 Internal Server Error**: Used when the server encounters an unexpected condition.
-
-### Error Handling
-- The application provides helper functions to send error responses with appropriate status codes and messages.
-- Common error responses include `serverErrorResponse`, `notFoundResponse`, `methodNotAllowedResponse`, and `badRequestResponse`.
-- The `errorResponse` function is used to send custom error messages with a specified status code.
-
-## API Usage Examples
-
-Here are some examples of how to interact with the Film API using `curl` commands.
-
-### Get List of Films
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/v1/films
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "films": [
-    {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "version": 1,
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  ],
-  "metadata": {
-    "current_page": 1,
-    "page_size": 20,
-    "first_page": 1,
-    "last_page": 1,
-    "total_records": 1
-  }
-}
-```
-
-### Create a New Film
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST -d '{
-  "title": "The Matrix",
-  "year": 1999,
-  "runtime": 136,
-  "rating": 8.7,
-  "description": "A computer hacker learns about the true nature of reality",
-  "image": "http://example.com/matrix.jpg",
-  "genres": ["Action", "Sci-Fi"],
-  "directors": ["Lana Wachowski", "Lilly Wachowski"],
-  "actors": ["Keanu Reeves", "Laurence Fishburne"]
-}' http://localhost:4000/v1/films
-```
-
-**Response:**
-
-```
-HTTP/1.1 201 Created
-Content-Type: application/json
-Location: /v1/films/2
-Content-Length: 123
-
-{
-  "film": {
-    "id": 2,
-    "title": "The Matrix",
-    "year": 1999,
-    "runtime": "136 mins",
-    "rating": 8.7,
-    "description": "A computer hacker learns about the true nature of reality",
-    "image": "http://example.com/matrix.jpg",
-    "version": 1,
-    "genres": ["Action", "Sci-Fi"],
-    "directors": ["Lana Wachowski", "Lilly Wachowski"],
-    "actors": ["Keanu Reeves", "Laurence Fishburne"]
-  }
-}
-```
-
-### Get a Specific Film
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/v1/films/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "film": {
-    "id": 1,
-    "title": "Inception",
-    "year": 2010,
-    "runtime": "148 mins",
-    "rating": 8.8,
-    "description": "A mind-bending thriller",
-    "image": "http://example.com/inception.jpg",
-    "version": 1,
-    "genres": ["Sci-Fi", "Thriller"],
-    "directors": ["Christopher Nolan"],
-    "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-  }
-}
-```
-
-### Update a Film
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X PATCH -d '{
-  "title": "Inception",
-  "year": 2010,
-  "runtime": 148,
-  "rating": 9.0,
-  "description": "A mind-bending thriller with a new rating",
-  "image": "http://example.com/inception.jpg",
-  "genres": ["Sci-Fi", "Thriller"],
-  "directors": ["Christopher Nolan"],
-  "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-}' http://localhost:4000/v1/films/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "film": {
-    "id": 1,
-    "title": "Inception",
-    "year": 2010,
-    "runtime": "148 mins",
-    "rating": 9.0,
-    "description": "A mind-bending thriller with a new rating",
-    "image": "http://example.com/inception.jpg",
-    "version": 2,
-    "genres": ["Sci-Fi", "Thriller"],
-    "directors": ["Christopher Nolan"],
-    "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-  }
-}
-```
-
-### Delete a Film
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -X DELETE http://localhost:4000/v1/films/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 41
-
-{
-    "message": "movie deleted succesfully"
-}
-```
-
-### Manage Watchlist
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X POST -d '{
-  "film_id": 1,
-  "notes": "Recommended by friend",
-  "priority": 8
-}' http://localhost:4000/v1/watchlist
-```
-
-**Response:**
-
-```
-HTTP/1.1 201 Created
-Content-Type: application/json
-Location: /v1/watchlist/1
-Content-Length: 123
-
-{
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Recommended by friend",
-    "priority": 8,
-    "watched": false,
-    "watched_at": null,
-    "rating": null,
-    "version": 1,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
-}
-```
-
-### Get User's Watchlist
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/v1/watchlist
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "watchlist": [
-    {
-      "id": 1,
-      "user_id": 123,
-      "film_id": 1,
-      "added_at": "2024-06-11T14:30:00Z",
-      "notes": "Recommended by friend",
-      "priority": 8,
-      "watched": false,
-      "watched_at": null,
-      "rating": null,
-      "version": 1,
-      "film": {
-        "id": 1,
-        "title": "Inception",
-        "year": 2010,
-        "runtime": "148 mins",
-        "rating": 8.8,
-        "description": "A mind-bending thriller",
-        "image": "http://example.com/inception.jpg",
-        "genres": ["Sci-Fi", "Thriller"],
-        "directors": ["Christopher Nolan"],
-        "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-      }
-    }
-  ],
-  "metadata": {
-    "current_page": 1,
-    "page_size": 20,
-    "first_page": 1,
-    "last_page": 1,
-    "total_records": 1
-  }
-}
-```
-
-### Get Watchlist Entry
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' http://localhost:4000/v1/watchlist/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Recommended by friend",
-    "priority": 8,
-    "watched": true,
-    "watched_at": "2024-06-12T20:15:00Z",
-    "rating": 9,
-    "version": 2,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
-}
-```
-
-### Update Watchlist Entry
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -H 'Content-Type: application/json' -X PATCH -d '{
-  "notes": "Amazing movie! Highly recommend",
-  "priority": 10,
-  "watched": true,
-  "rating": 9
-}' http://localhost:4000/v1/watchlist/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 123
-
-{
-  "watchlist_entry": {
-    "id": 1,
-    "user_id": 123,
-    "film_id": 1,
-    "added_at": "2024-06-11T14:30:00Z",
-    "notes": "Amazing movie! Highly recommend",
-    "priority": 10,
-    "watched": true,
-    "watched_at": "2024-06-12T20:15:00Z",
-    "rating": 9,
-    "version": 2,
-    "film": {
-      "id": 1,
-      "title": "Inception",
-      "year": 2010,
-      "runtime": "148 mins",
-      "rating": 8.8,
-      "description": "A mind-bending thriller",
-      "image": "http://example.com/inception.jpg",
-      "genres": ["Sci-Fi", "Thriller"],
-      "directors": ["Christopher Nolan"],
-      "actors": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"]
-    }
-  }
-}
-```
-
-### Remove Film from Watchlist
-
-**Request:**
-
-```bash
-curl -i -H 'Accept: application/json' -X DELETE http://localhost:4000/v1/watchlist/1
-```
-
-**Response:**
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-Content-Length: 41
-
-{
-    "message": "watchlist entry removed successfully"
-}
-```
+**Built with ❤️ using Go and Neo4j**

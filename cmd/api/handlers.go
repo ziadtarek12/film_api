@@ -13,101 +13,219 @@ import (
 
 func (app *application) welcomeHandler(w http.ResponseWriter, r *http.Request) {
 	welcomeText := `
-██╗    ██╗███████╗██╗      ██████╗ ██████╗ ███╗   ███╗███████╗
-██║    ██║██╔════╝██║     ██╔════╝██╔═══██╗████╗ ████║██╔════╝
-██║ █╗ ██║█████╗  ██║     ██║     ██║   ██║██╔████╔██║█████╗  
-██║███╗██║██╔══╝  ██║     ██║     ██║   ██║██║╚██╔╝██║██╔══╝  
-╚███╔███╔╝███████╗███████╗╚██████╗╚██████╔╝██║ ╚═╝ ██║███████╗
- ╚══╝╚══╝ ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ███████╗██╗██╗     ███╗   ███╗     █████╗ ██████╗ ██╗      ║
+║   ██╔════╝██║██║     ████╗ ████║    ██╔══██╗██╔══██╗██║      ║
+║   █████╗  ██║██║     ██╔████╔██║    ███████║██████╔╝██║      ║
+║   ██╔══╝  ██║██║     ██║╚██╔╝██║    ██╔══██║██╔═══╝ ██║      ║
+║   ██║     ██║███████╗██║ ╚═╝ ██║    ██║  ██║██║     ██║      ║
+║   ╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝    ╚═╝  ╚═╝╚═╝     ╚═╝      ║
+║                                                              ║
+║                                                              ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
 
-                    🎬 FILM API 🎬
-                    
-Welcome to the Film API - Your Gateway to Cinema Data!
-
-═══════════════════════════════════════════════════════════════
-
-📚 API Documentation:
-
-🔍 Films Endpoints:
-   GET    /v1/films           - List all films (with advanced filtering!)
-   POST   /v1/films           - Create a new film  
-   GET    /v1/films/{id}      - Get film by ID
-   PATCH  /v1/films/{id}      - Update film
-   DELETE /v1/films/{id}      - Delete film
-
-🎯 Films Filtering & Searching:
-   • Title Search:
-     /v1/films?title=godfather
-     
-   • Genre Filtering:
-     /v1/films?genres=action,drama
-     /v1/films?genres=sci-fi
-     
-   • Director Search:
-     /v1/films?directors=nolan,scorsese
-     /v1/films?directors=kubrick
-     
-   • Actor Search:
-     /v1/films?actors=dicaprio,pacino
-     /v1/films?actors=deniro
-     
-   • Combined Filters:
-     /v1/films?title=dark&genres=action&directors=nolan
-     
-   • Pagination:
-     /v1/films?page=2&page_size=10
-     
-   • Sorting:
-     /v1/films?sort=title          (A-Z)
-     /v1/films?sort=-rating        (highest rated first)
-     /v1/films?sort=year,-rating   (newest first, then by rating)
-     
-   Available sort fields: id, title, year, runtime, rating
-   Use '-' prefix for descending order (e.g., -year, -rating)
-
-👤 User Endpoints:
-   POST   /v1/users           - Register new user
-   PUT    /v1/users/activate  - Activate user account
-   POST   /v1/tokens/authentication - Login
-
-📋 Watchlist Endpoints:
-   GET    /v1/watchlist       - Get user's watchlist
-   POST   /v1/watchlist       - Add film to watchlist
-   GET    /v1/watchlist/{id}  - Get watchlist entry
-   PATCH  /v1/watchlist/{id}  - Update watchlist entry
-   DELETE /v1/watchlist/{id}  - Remove from watchlist
-
-🎯 Watchlist Filtering:
-   • By status:
-     /v1/watchlist?watched=true    (watched films)
-     /v1/watchlist?watched=false   (unwatched films)
-     
-   • By priority:
-     /v1/watchlist?priority=5      (high priority films)
-     
-   • Sorting:
-     /v1/watchlist?sort=priority   (by priority)
-     /v1/watchlist?sort=-added_at  (newest additions first)
-
-💡 System:
-   GET    /v1/healthcheck     - API health status
+🌟 Welcome to the Film API - Powered by Neo4j Graph Database!
 
 ═══════════════════════════════════════════════════════════════
 
-🔐 Authentication: Most endpoints require authentication tokens
-📄 Format: All responses are in JSON format
-🌍 Version: v1
-📊 Status: Online and Ready
+📚 CORE FEATURES:
 
-💡 Pro Tips:
-   • Combine multiple filters for precise searches
-   • Use pagination for large result sets
-   • Sort results to find what you need faster
-   • Try partial title matches for flexible searching
-
-Happy Coding! 🚀
+   ✨ 100+ Films with comprehensive metadata
+   🎭 Advanced filtering by title, genre, director, and actors
+   🔍 Intelligent search with partial matching
+   📊 Pagination and flexible sorting
+   🎯 Personalized recommendations using graph algorithms
+   👤 User authentication with JWT tokens
+   📋 Personal watchlist management
+   🔐 Role-based permissions system
 
 ═══════════════════════════════════════════════════════════════
+
+🎬 FILMS ENDPOINTS:
+
+   GET    /v1/films              List all films (supports filtering)
+   POST   /v1/films              Create a new film [Auth Required]
+   GET    /v1/films/{id}         Get specific film details
+   PATCH  /v1/films/{id}         Update film information [Auth Required]
+   DELETE /v1/films/{id}         Delete a film [Auth Required]
+   GET    /v1/recommendations    Get personalized recommendations [Auth Required]
+
+   🎯 Advanced Filtering Examples:
+   
+      By Title:
+      → /v1/films?title=godfather
+      
+      By Genre (single or multiple):
+      → /v1/films?genres=action
+      → /v1/films?genres=action,drama,thriller
+      
+      By Director:
+      → /v1/films?directors=nolan
+      → /v1/films?directors=nolan,scorsese,tarantino
+      
+      By Actor:
+      → /v1/films?actors=dicaprio
+      → /v1/films?actors=dicaprio,pacino,deniro
+      
+      Combined Filters:
+      → /v1/films?title=dark&genres=action&directors=nolan
+      → /v1/films?genres=sci-fi&actors=dicaprio&sort=-rating
+      
+      Pagination:
+      → /v1/films?page=1&page_size=20
+      → /v1/films?page=2&page_size=50
+      
+      Sorting (use '-' for descending):
+      → /v1/films?sort=title           (A-Z alphabetical)
+      → /v1/films?sort=-rating         (highest rated first)
+      → /v1/films?sort=-year           (newest first)
+      → /v1/films?sort=year,-rating    (multi-field sorting)
+      
+      Available sort fields: id, title, year, runtime, rating
+
+═══════════════════════════════════════════════════════════════
+
+👤 USER & AUTHENTICATION ENDPOINTS:
+
+   POST   /v1/users                      Register new user
+   PUT    /v1/users/activate             Activate user account
+   POST   /v1/tokens/authentication      Login & get JWT tokens
+
+   � Authentication Flow:
+   
+      1. Register: POST /v1/users
+         {
+           "name": "John Doe",
+           "email": "john@example.com",
+           "password": "securepassword123"
+         }
+      
+      2. Activate: PUT /v1/users/activate
+         {
+           "token": "activation_token_from_registration"
+         }
+      
+      3. Login: POST /v1/tokens/authentication
+         {
+           "email": "john@example.com",
+           "password": "securepassword123"
+         }
+         
+         Response includes:
+         - access_token (1 hour validity)
+         - refresh_token (7 days validity)
+      
+      4. Use Token: Add header to authenticated requests
+         Authorization: Bearer <your_access_token>
+
+═══════════════════════════════════════════════════════════════
+
+📋 WATCHLIST ENDPOINTS:
+
+   GET    /v1/watchlist          Get your watchlist [Auth Required]
+   POST   /v1/watchlist          Add film to watchlist [Auth Required]
+   GET    /v1/watchlist/{id}     Get specific watchlist entry [Auth Required]
+   PATCH  /v1/watchlist/{id}     Update watchlist entry [Auth Required]
+   DELETE /v1/watchlist/{id}     Remove from watchlist [Auth Required]
+
+   🎯 Watchlist Filtering:
+   
+      By Watch Status:
+      → /v1/watchlist?watched=true     (films you've watched)
+      → /v1/watchlist?watched=false    (films to watch)
+      
+      By Priority (1-10):
+      → /v1/watchlist?priority=5
+      → /v1/watchlist?priority=10      (highest priority)
+      
+      Sorting:
+      → /v1/watchlist?sort=priority    (by priority)
+      → /v1/watchlist?sort=-added_at   (newest first)
+      → /v1/watchlist?sort=-rating     (highest rated first)
+      
+      Combined:
+      → /v1/watchlist?watched=false&sort=-priority
+
+   📝 Add to Watchlist Example:
+      POST /v1/watchlist
+      {
+        "film_id": 123,
+        "notes": "Must watch this weekend!",
+        "priority": 8
+      }
+
+═══════════════════════════════════════════════════════════════
+
+🎯 RECOMMENDATIONS:
+
+   GET    /v1/recommendations    Get personalized film suggestions [Auth Required]
+   
+   Query Parameters:
+   → /v1/recommendations?limit=10    (default: 10, max: 50)
+   
+   🧠 How it works:
+   - Analyzes your watchlist preferences
+   - Uses Neo4j graph algorithms
+   - Considers genres, directors, and actors
+   - Finds similar films you haven't watched yet
+
+═══════════════════════════════════════════════════════════════
+
+💡 SYSTEM ENDPOINTS:
+
+   GET    /                      This welcome page
+   GET    /v1/healthcheck        API health status
+
+═══════════════════════════════════════════════════════════════
+
+📊 TECHNICAL DETAILS:
+
+   🗄️  Database: Neo4j Graph Database
+   🔐 Auth: JWT (JSON Web Tokens)
+   📄 Format: JSON
+   🌍 Version: v1.0.0
+   ⚡ Rate Limiting: Enabled
+   � CORS: Configured for trusted origins
+   �📊 Status: ✅ Online and Ready
+
+═══════════════════════════════════════════════════════════════
+
+💡 PRO TIPS:
+
+   ✅ Combine multiple filters for precise searches
+   ✅ Use pagination for large result sets (page_size max: 100)
+   ✅ Sort by multiple fields for better organization
+   ✅ Try partial title matches - searches are case-insensitive
+   ✅ Use watchlist priorities to organize your viewing queue
+   ✅ Check recommendations regularly for personalized suggestions
+   ✅ Access tokens expire after 1 hour - use refresh tokens
+   ✅ All timestamps are in ISO 8601 format (UTC)
+
+═══════════════════════════════════════════════════════════════
+
+📖 QUICK START EXAMPLE:
+
+   1. Register & Login:
+      curl -X POST http://localhost:4000/v1/users \
+        -H "Content-Type: application/json" \
+        -d '{"name":"John","email":"john@example.com","password":"pass123"}'
+   
+   2. Browse Films:
+      curl http://localhost:4000/v1/films?genres=action&sort=-rating
+   
+   3. Add to Watchlist (with auth token):
+      curl -X POST http://localhost:4000/v1/watchlist \
+        -H "Authorization: Bearer YOUR_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"film_id":1,"priority":8}'
+   
+   4. Get Recommendations:
+      curl http://localhost:4000/v1/recommendations?limit=5 \
+        -H "Authorization: Bearer YOUR_TOKEN"
+
+
 `
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -387,6 +505,30 @@ func (app *application) ListFilmsHandler(w http.ResponseWriter, r *http.Request)
 
 }
 
+func (app *application) listRecommendationsHandler(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+
+	v := validator.New()
+	qs := r.URL.Query()
+
+	limit := app.readInt(qs, "limit", 10, v)
+	if !v.Valid() {
+		app.faliedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	recommendations, err := app.models.Films.GetRecommendations(user.ID, limit)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, map[string]any{"recommendations": recommendations}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Name     string `json:"name"`
@@ -557,7 +699,22 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 		return
 	}
 
-	token, err := app.models.Tokens.New(user.ID, 24*time.Hour, models.ScopeAuthentication)
+	// Generate JWT access token
+	accessToken, err := app.generateAccessToken(user.ID, user.Email, user.Activated)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Generate JWT refresh token
+	refreshToken, err := app.generateRefreshToken(user.ID, user.Email, user.Activated)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Store refresh token hash in DB for revocation capability
+	err = app.models.Tokens.InsertJWTRefresh(user.ID, refreshToken)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -565,7 +722,21 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 
 	app.models.Permissions.AddForUser(user.ID, "films:read")
 	app.models.Permissions.AddForUser(user.ID, "films:write")
-	err = app.writeJSON(w, http.StatusCreated, map[string]any{"authentication_token": token}, nil)
+
+	response := map[string]any{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    int(app.config.jwt.accessTokenTTL.Seconds()),
+		"user": map[string]any{
+			"id":        user.ID,
+			"email":     user.Email,
+			"name":      user.Name,
+			"activated": user.Activated,
+		},
+	}
+
+	err = app.writeJSON(w, http.StatusCreated, response, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -679,7 +850,7 @@ func (app *application) getWatchlistHandler(w http.ResponseWriter, r *http.Reque
 	input.Filters.Page = app.readInt(queryString, "page", 1, v)
 	input.Filters.PageSize = app.readInt(queryString, "page_size", 20, v)
 	input.Filters.SortValues = app.readCSV(queryString, "sort", []string{})
-	input.Filters.SortSafelist = []string{"id", "added_at", "priority", "watched", "-id", "-added_at", "-priority", "-watched"}
+	input.Filters.SortSafelist = []string{"id", "added_at", "priority", "watched", "rating", "-id", "-added_at", "-priority", "-watched", "-rating"}
 
 	if models.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.faliedValidationResponse(w, r, v.Errors)
@@ -770,7 +941,7 @@ func (app *application) updateWatchlistEntryHandler(w http.ResponseWriter, r *ht
 	if input.Watched != nil {
 		entry.Watched = *input.Watched
 		if *input.Watched && entry.WatchedAt == nil {
-			now := time.Now()
+			now := time.Now().UTC()
 			entry.WatchedAt = &now
 		} else if !*input.Watched {
 			entry.WatchedAt = nil
@@ -783,7 +954,7 @@ func (app *application) updateWatchlistEntryHandler(w http.ResponseWriter, r *ht
 		if !entry.Watched {
 			entry.Watched = true
 			if entry.WatchedAt == nil {
-				now := time.Now()
+				now := time.Now().UTC()
 				entry.WatchedAt = &now
 			}
 		}
