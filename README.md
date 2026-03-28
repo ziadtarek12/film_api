@@ -50,6 +50,7 @@ A high-performance RESTful API for film discovery and recommendations, built wit
 | **Authentication** | JWT (golang-jwt/jwt/v5) |
 | **Password Hashing** | bcrypt |
 | **Rate Limiting** | golang.org/x/time/rate |
+| **Containerisation** | Docker + Compose (scratch-based image) |
 | **Architecture** | RESTful API with middleware chain |
 
 ---
@@ -109,6 +110,78 @@ go build -o api ./cmd/api
 ```
 
 Server starts on `http://localhost:4000`
+
+---
+
+## 🐳 Docker Self-Hosting
+
+Run the entire stack (API + Neo4j) with a single command. The final API image is built from `scratch` — **under 15 MB**.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (v20+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+
+### Setup
+
+```bash
+# 1. Clone & enter the project
+git clone <repository-url>
+cd film_api
+
+# 2. Create your environment file
+cp .env.example .env
+
+# 3. Edit .env — at minimum change these:
+#    NEO4J_PASSWORD=<choose-a-strong-password>
+#    JWT_SECRET=<run: openssl rand -base64 32>
+
+# 4. Launch everything
+docker compose up -d
+```
+
+### What's Running
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **API** | `http://localhost:4000` | Film API (all endpoints) |
+| **Neo4j Browser** | `http://localhost:7474` | Database admin UI |
+
+The API waits for Neo4j to be fully healthy before starting (`depends_on` + health check).
+
+### Seeding Film Data (Optional)
+
+The API auto-populates the database on first boot if a `filtered_films.csv` file is present. To seed data, mount your CSV into the container:
+
+```yaml
+# In docker-compose.yml, under the api service:
+services:
+  api:
+    volumes:
+      - ./filtered_films.csv:/filtered_films.csv:ro
+```
+
+Then restart:
+
+```bash
+docker compose up -d --force-recreate api
+```
+
+### Useful Commands
+
+```bash
+# View logs
+docker compose logs -f api
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Stop everything
+docker compose down
+
+# Stop and wipe all data (Neo4j database included)
+docker compose down -v
+```
 
 ---
 

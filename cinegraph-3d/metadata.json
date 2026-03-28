@@ -1,0 +1,5 @@
+{
+  "name": "CineGraph 3D",
+  "description": "A stunning WebGL 3D graph visualization for film data.",
+  "requestFramePermissions": []
+}

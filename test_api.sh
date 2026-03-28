@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-API_URL="http://localhost:8080/v1"
+API_URL="http://localhost:${API_PORT:-4000}/v1"
 EMAIL="testuser_$(date +%s)@example.com"
 PASSWORD="password123"
 NAME="Test User"
@@ -121,15 +121,16 @@ fi
 # =================================================================
 echo -e "\n${YELLOW}[TEST 5/15]${NC} List Films (Basic)"
 echo "================================================================"
-RESPONSE=$(curl -s -G "$API_URL/films" \
+FILMS_RESPONSE=$(curl -s -G "$API_URL/films" \
     -d "page_size=3" \
     -H "Authorization: Bearer $ACCESS_TOKEN")
 
-echo "$RESPONSE"
+echo "$FILMS_RESPONSE"
 
-FILM_ID=$(echo "$RESPONSE" | grep -o '"id":[0-9]*' | head -n 1 | grep -o '[0-9]*')
+FILM_ID=$(echo "$FILMS_RESPONSE" | grep -o '"id":[0-9]*' | head -n 1 | grep -o '[0-9]*')
 
 if [ -n "$FILM_ID" ]; then
+    RESPONSE="$FILMS_RESPONSE"
     pass_test "Films retrieved, first film ID: $FILM_ID"
 else
     fail_test "Failed to retrieve films"
