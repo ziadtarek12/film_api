@@ -23,7 +23,8 @@ func (app *application) routes() http.Handler {
 	router.Handle("GET /v1/films/{id}", app.requirePermission("films:read", http.HandlerFunc(app.getFilmHandler)))
 	router.Handle("PATCH /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.updateFilmHandler)))
 	router.Handle("DELETE /v1/films/{id}", app.requirePermission("films:write", http.HandlerFunc(app.deleteFilmHandler)))
-	router.Handle("GET /v1/recommendations", app.requireActivatedUser(http.HandlerFunc(app.listRecommendationsHandler)))
+	router.Handle("GET /v1/films/{id}/recommendations", app.requirePermission("films:read", http.HandlerFunc(app.getRecommendationsHandler)))
+
 
 	// Watchlist routes (require authentication)
 	router.Handle("GET /v1/watchlist", app.requireActivatedUser(http.HandlerFunc(app.getWatchlistHandler)))
